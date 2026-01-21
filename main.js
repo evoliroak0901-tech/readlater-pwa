@@ -13,6 +13,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     renderCurrentView();
 
+    // グローバルに公開
+    window.allPages = allPages;
+    window.loadPages = loadPages;
+    window.savePages = savePages;
+    window.renderCurrentView = renderCurrentView;
+
     // Supabase初期化（supabase.jsで定義）
     if (typeof initializeSupabase === 'function') {
         initializeSupabase();

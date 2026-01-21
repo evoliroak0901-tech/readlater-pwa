@@ -213,11 +213,23 @@ async function syncData() {
 
 // サインイン時の処理
 async function onSignIn() {
+    console.log('Starting data sync...');
     // データを同期
     const syncedPages = await syncData();
-    allPages = syncedPages;
-    await savePages(); // ローカルにも保存
-    renderCurrentView();
+
+    // グローバルのallPagesを更新
+    if (window.allPages !== undefined) {
+        window.allPages = syncedPages;
+        allPages = syncedPages; // ローカル変数が存在する場合のフォールバック
+    }
+
+    if (typeof window.savePages === 'function') {
+        await window.savePages(); // ローカルにも保存
+    }
+
+    if (typeof window.renderCurrentView === 'function') {
+        window.renderCurrentView();
+    }
 
     // UIを更新
     updateAuthUI();
