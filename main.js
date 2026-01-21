@@ -96,6 +96,7 @@ async function loadPages() {
 // ページデータ保存
 async function savePages() {
     localStorage.setItem('readlater_pages', JSON.stringify(allPages));
+    window.allPages = allPages; // 同期用にグローバルも更新
 }
 
 // タブ切り替え
@@ -333,6 +334,11 @@ async function toggleRead(pageId) {
         page.read = !page.read;
         await savePages();
         renderCurrentView();
+
+        // クラウド同期
+        if (typeof updatePageInCloud === 'function') {
+            await updatePageInCloud(pageId, { is_read: page.read });
+        }
     }
 }
 
@@ -344,6 +350,11 @@ async function deletePage(pageId) {
     await savePages();
     renderCurrentView();
     showToast('ページを削除しました');
+
+    // クラウド同期
+    if (typeof deletePageFromCloud === 'function') {
+        await deletePageFromCloud(pageId);
+    }
 }
 
 // カウント更新
@@ -480,6 +491,11 @@ async function saveNewPage() {
     renderCurrentView();
     closeDialog();
     showToast('保存しました✨', 'success');
+
+    // クラウド同期
+    if (typeof savePageToCloud === 'function') {
+        await savePageToCloud(page);
+    }
 }
 
 // タグ生成

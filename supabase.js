@@ -74,18 +74,22 @@ async function signOut() {
 
 // ページを保存（Supabase版）
 async function savePageToCloud(page) {
-    if (!currentUser) {
-        showToast('ログインが必要です', 'error');
-        return false;
-    }
+    if (!currentUser) return false;
 
     try {
         const { data, error } = await supabaseClient
             .from('pages')
             .upsert({
-                ...page,
+                id: page.id,
                 user_id: currentUser.id,
-                updated_at: new Date().toISOString()
+                url: page.url,
+                title: page.title,
+                favicon: page.favicon,
+                domain: page.domain,
+                excerpt: page.excerpt,
+                tags: page.tags || [],
+                is_read: page.read || false,
+                saved_at: page.savedAt || new Date().toISOString()
             })
             .select();
 
@@ -93,16 +97,13 @@ async function savePageToCloud(page) {
         return true;
     } catch (error) {
         console.error('Save error:', error);
-        showToast('保存に失敗しました', 'error');
         return false;
     }
 }
 
 // ページを取得（Supabase版）
 async function loadPagesFromCloud() {
-    if (!currentUser) {
-        return [];
-    }
+    if (!currentUser) return [];
 
     try {
         const { data, error } = await supabaseClient
@@ -112,10 +113,21 @@ async function loadPagesFromCloud() {
             .order('saved_at', { ascending: false });
 
         if (error) throw error;
-        return data || [];
+
+        // DB形式からアプリ形式に変換
+        return (data || []).map(item => ({
+            id: item.id,
+            url: item.url,
+            title: item.title,
+            favicon: item.favicon,
+            domain: item.domain,
+            excerpt: item.excerpt,
+            tags: item.tags || [],
+            read: item.is_read,
+            savedAt: item.saved_at
+        }));
     } catch (error) {
         console.error('Load error:', error);
-        showToast('データの読み込みに失敗しました', 'error');
         return [];
     }
 }
@@ -203,7 +215,7 @@ async function syncData() {
 
         // マージされたデータを返す
         return Array.from(pageMap.values())
-            .sort((a, b) => new Date(b.saved_at) - new Date(a.saved_at));
+            .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
 
     } catch (error) {
         console.error('Sync error:', error);
