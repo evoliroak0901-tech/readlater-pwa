@@ -88,7 +88,7 @@ async function savePageToCloud(page) {
                 domain: page.domain,
                 excerpt: page.excerpt,
                 tags: page.tags || [],
-                is_read: page.read || false,
+                read: page.read || false,
                 saved_at: page.savedAt || new Date().toISOString()
             })
             .select();
@@ -123,7 +123,7 @@ async function loadPagesFromCloud() {
             domain: item.domain,
             excerpt: item.excerpt,
             tags: item.tags || [],
-            read: item.is_read,
+            read: item.read,
             savedAt: item.saved_at
         }));
     } catch (error) {
