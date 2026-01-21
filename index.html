@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ReadLater - あとで読む</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Share Target リダイレクト処理用 -->
+        <div id="shareTarget" style="display: none;"></div>
+
+        <!-- Header -->
+        <header class="header">
+            <div class="header-top">
+                <h1 class="logo">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    ReadLater
+                </h1>
+                <div class="header-right">
+                    <div id="authContainer"></div>
+                    <div class="header-stats">
+                        <span class="stat-badge" id="totalCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-container">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" class="search-input" id="searchInput" placeholder="検索...">
+            </div>
+
+            <!-- Add Button (Mobile) -->
+            <button class="add-btn" id="addBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>新しく追加</span>
+            </button>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="all">
+                    <span class="tab-label">すべて</span>
+                    <span class="tab-count" id="allCount">0</span>
+                </button>
+                <button class="tab" data-tab="unread">
+                    <span class="tab-label">未読</span>
+                    <span class="tab-count" id="unreadCount">0</span>
+                </button>
+                <button class="tab" data-tab="sites">
+                    <span class="tab-label">サイト別</span>
+                </button>
+                <button class="tab" data-tab="tags">
+                    <span class="tab-label">タグ別</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <main class="content">
+            <!-- All Pages View -->
+            <div class="view active" id="allView">
+                <div class="items-container" id="allItems"></div>
+            </div>
+
+            <!-- Unread Pages View -->
+            <div class="view" id="unreadView">
+                <div class="items-container" id="unreadItems"></div>
+            </div>
+
+            <!-- Sites View -->
+            <div class="view" id="sitesView">
+                <div class="sites-grid" id="sitesGrid"></div>
+            </div>
+
+            <!-- Tags View -->
+            <div class="view" id="tagsView">
+                <div class="tags-cloud" id="tagsCloud"></div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h2>まだ保存されたページがありません</h2>
+                <p>気になるページを見つけたら、「新しく追加」ボタンから保存しましょう</p>
+            </div>
+        </main>
+
+        <!-- Add Dialog -->
+        <div class="dialog-overlay" id="dialogOverlay">
+            <div class="dialog">
+                <div class="dialog-header">
+                    <h2>新しく追加</h2>
+                    <button class="dialog-close" id="dialogClose">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="dialog-body">
+                    <div class="form-group">
+                        <label for="urlInput">URLまたはタイトル</label>
+                        <input type="text" id="urlInput" placeholder="https://example.com または タイトル" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="titleInput">タイトル（オプション）</label>
+                        <input type="text" id="titleInput" placeholder="ページタイトル" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="noteInput">メモ（オプション）</label>
+                        <textarea id="noteInput" placeholder="メモや感想" class="form-textarea" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="dialog-footer">
+                    <button class="btn btn-secondary" id="cancelBtn">キャンセル</button>
+                    <button class="btn btn-primary" id="saveBtn">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script src="supabase.js"></script>
+    <script src="main.js"></script>
+    <script>
+        // Service Worker登録
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered:', reg))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+    </script>
+</body>
+
+</html>

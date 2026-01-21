@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>認証確認</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .btn:hover {
+            background: #059669;
+        }
+
+        .btn-logout {
+            background: #ef4444;
+        }
+
+        .btn-logout:hover {
+            background: #dc2626;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            min-height: 100px;
+        }
+
+        .success {
+            background: rgba(16, 185, 129, 0.3) !important;
+        }
+
+        .user-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 Supabase 認証テスト</h1>
+
+    <div id="authArea">
+        <button class="btn" onclick="login()">🚀 Googleでログイン</button>
+    </div>
+
+    <div id="status">初期化中...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script>
+        const { createClient } = window.supabase;
+        const client = createClient(
+            'https://sreimiuxlfqlifkrlwhv.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWltaXV4bGZxbGlma3Jsd2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNDY1MzksImV4cCI6MjA1MjYyMjUzOX0.Gq3S_bYERVzstLPgNNDQExh-dMqLf7sTkjrFN-rJXuk'
+        );
+
+        let currentUser = null;
+
+        function updateUI() {
+            const status = document.getElementById('status');
+            const authArea = document.getElementById('authArea');
+
+            if (currentUser) {
+                status.className = 'success';
+                status.innerHTML = `
+                    <div class="user-box">
+                        <h2>✅ ログイン成功！</h2>
+                        <p><strong>メール:</strong> ${currentUser.email}</p>
+                        <p><strong>ID:</strong> ${currentUser.id.substring(0, 20)}...</p>
+                        <p><strong>ログイン時刻:</strong> ${new Date().toLocaleString('ja-JP')}</p>
+                    </div>
+                `;
+                authArea.innerHTML = '<button class="btn btn-logout" onclick="logout()">ログアウト</button>';
+            } else {
+                status.innerHTML = '⏳ ログインしていません。上のボタンをクリックしてください。';
+                authArea.innerHTML = '<button class="btn" onclick="login()">🚀 Googleでログイン</button>';
+            }
+        }
+
+        async function login() {
+            document.getElementById('status').innerHTML = 'ログイン処理を開始中...';
+
+            const { error } = await client.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.href.split('?')[0]
+                }
+            });
+
+            if (error) {
+                document.getElementById('status').innerHTML = '❌ エラー: ' + error.message;
+                console.error(error);
+            }
+        }
+
+        async function logout() {
+            await client.auth.signOut();
+            currentUser = null;
+            updateUI();
+        }
+
+        // 認証状態の監視
+        client.auth.onAuthStateChange((event, session) => {
+            console.log('認証イベント:', event, session);
+            currentUser = session?.user || null;
+            updateUI();
+        });
+
+        // 初期セッションチェック
+        client.auth.getSession().then(({ data: { session } }) => {
+            console.log('初期セッション:', session);
+            currentUser = session?.user || null;
+            updateUI();
+        });
+
+        document.getElementById('status').innerHTML = '✅ 準備完了！';
+    </script>
+</body>
+
+</html>

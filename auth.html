@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>認証テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+
+        .btn:hover {
+            background: #059669;
+        }
+
+        #info {
+            margin-top: 30px;
+            padding: 20px;
+            background: #1e293b;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 Google認証テスト</h1>
+    <button class="btn" id="loginBtn">Googleでログイン</button>
+    <div id="info">準備中...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script>
+        const sb = window.supabase.createClient(
+            'https://sreimiuxlfqlifkrlwhv.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWltaXV4bGZxbGlma3Jsd2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNDY1MzksImV4cCI6MjA1MjYyMjUzOX0.Gq3S_bYERVzstLPgNNDQExh-dMqLf7sTkjrFN-rJXuk'
+        );
+
+        document.getElementById('info').textContent = '✅ 準備完了！ボタンをクリックしてください';
+
+        document.getElementById('loginBtn').onclick = async function () {
+            document.getElementById('info').textContent = 'ログイン処理中...';
+            try {
+                const { error } = await sb.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: { redirectTo: location.origin + '/auth.html' }
+                });
+                if (error) throw error;
+            } catch (e) {
+                document.getElementById('info').textContent = 'エラー: ' + e.message;
+            }
+        };
+
+        sb.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                document.getElementById('info').innerHTML =
+                    '🎉 ログイン成功！<br>ユーザー: ' + session.user.email;
+            }
+        });
+    </script>
+</body>
+
+</html>

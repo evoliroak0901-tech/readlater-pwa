@@ -1,0 +1,42 @@
+# Keep Supabase Alive - 週1回自動実行
+name: Keep Supabase Active
+
+on:
+  schedule:
+    # 毎週月曜日の午前9時（日本時間）に実行
+    # UTCで0時 = 日本時間9時
+    - cron: '0 0 * * 1'
+  
+  # 手動実行も可能
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Supabase Project
+        run: |
+          echo "Pinging Supabase to keep project active..."
+          
+          # SupabaseのAPIにリクエスト
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json"
+          
+          echo "✅ Supabase pinged successfully!"
+      
+      - name: Ping Vercel Deployment (Optional)
+        run: |
+          if [ -n "${{ secrets.VERCEL_URL }}" ]; then
+            echo "Pinging Vercel deployment..."
+            curl -X GET "https://${{ secrets.VERCEL_URL }}"
+            echo "✅ Vercel deployment pinged!"
+          else
+            echo "⚠️ VERCEL_URL not set, skipping..."
+          fi
+      
+      - name: Log success
+        run: |
+          echo "🎉 Keep-alive job completed successfully!"
+          echo "Next run: $(date -d 'next monday 09:00' '+%Y-%m-%d %H:%M %Z')"
