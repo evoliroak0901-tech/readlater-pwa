@@ -48,14 +48,14 @@ async function signInWithGoogle() {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: window.location.origin // 現在のURL（VercelならVercel、ローカルならローカル）に自動で合わせる
             }
         });
 
         if (error) throw error;
     } catch (error) {
-        console.error('Sign in error:', error);
-        showToast('ログインに失敗しました', 'error');
+        console.error('Error signing in:', error.message);
+        showToast('ログインエラーが発生しました', 'error');
     }
 }
 
