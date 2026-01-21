@@ -9,15 +9,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Share Target処理
     handleShareTarget();
 
+    // グローバルにセッター関数とデータを公開
+    window.updateAllPages = (newPages) => {
+        allPages = newPages;
+        window.allPages = allPages;
+        renderCurrentView();
+    };
+
     await loadPages();
     setupEventListeners();
     renderCurrentView();
-
-    // グローバルに公開
-    window.allPages = allPages;
-    window.loadPages = loadPages;
-    window.savePages = savePages;
-    window.renderCurrentView = renderCurrentView;
 
     // Supabase初期化（supabase.jsで定義）
     if (typeof initializeSupabase === 'function') {
@@ -337,7 +338,7 @@ async function toggleRead(pageId) {
 
         // クラウド同期
         if (typeof updatePageInCloud === 'function') {
-            await updatePageInCloud(pageId, { is_read: page.read });
+            await updatePageInCloud(pageId, { read: page.read }); // readに修正
         }
     }
 }
