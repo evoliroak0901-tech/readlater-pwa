@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://sreimiuxlfqlifkrlwhv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWltaXV4bGZxbGlma3Jsd2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNDY1MzksImV4cCI6MjA1MjYyMjUzOX0.Gq3S_bYERVzstLPgNNDQExh-dMqLf7sTkjrFN-rJXuk';
 
 // Supabaseクライアント作成
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 現在のユーザー
 let currentUser = null;
@@ -20,7 +20,7 @@ function initializeSupabase() {
     supabaseInitialized = true;
 
     // 認証状態の変更を監視
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
         currentUser = session?.user ?? null;
 
         if (event === 'SIGNED_IN') {
@@ -33,7 +33,7 @@ function initializeSupabase() {
     });
 
     // 初期化時にセッションをチェック
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
         if (session) {
             currentUser = session.user;
             onSignIn();
@@ -45,7 +45,7 @@ function initializeSupabase() {
 // サインイン処理
 async function signInWithGoogle() {
     try {
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: window.location.origin
@@ -62,7 +62,7 @@ async function signInWithGoogle() {
 // サインアウト処理
 async function signOut() {
     try {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabaseClient.auth.signOut();
         if (error) throw error;
 
         showToast('ログアウトしました', 'success');
@@ -80,7 +80,7 @@ async function savePageToCloud(page) {
     }
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('pages')
             .upsert({
                 ...page,
@@ -105,7 +105,7 @@ async function loadPagesFromCloud() {
     }
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('pages')
             .select('*')
             .eq('user_id', currentUser.id)
@@ -127,7 +127,7 @@ async function deletePageFromCloud(pageId) {
     }
 
     try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('pages')
             .delete()
             .eq('id', pageId)
