@@ -17,12 +17,14 @@ function initializeSupabase() {
     if (supabaseInitialized) return;
     supabaseInitialized = true;
 
+    console.log('Supabase Initializing...');
+
     // 認証状態の監視
     supabaseClient.auth.onAuthStateChange((event, session) => {
         currentUser = session?.user ?? null;
         console.log('Auth event:', event, currentUser?.email);
 
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             onSignIn();
         } else if (event === 'SIGNED_OUT') {
             onSignOut();
@@ -43,6 +45,7 @@ function initializeSupabase() {
 // Googleログイン
 async function signInWithGoogle() {
     try {
+        console.log('Redirecting to Google Login...');
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -52,6 +55,7 @@ async function signInWithGoogle() {
         if (error) throw error;
     } catch (error) {
         console.error('Login error:', error);
+        alert('ログインエラーが発生しました: ' + error.message);
     }
 }
 
@@ -59,6 +63,7 @@ async function signInWithGoogle() {
 async function signOut() {
     try {
         await supabaseClient.auth.signOut();
+        window.location.reload(); // 確実にクリーンアップ
     } catch (error) {
         console.error('Logout error:', error);
     }
@@ -68,9 +73,14 @@ async function signOut() {
 
 // 保存
 async function savePageToCloud(page) {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.warn('Cannot save: User not logged in');
+        return;
+    }
+
+    console.log('Saving to cloud...', page.id);
     try {
-        await supabaseClient.from('pages').upsert({
+        const { error } = await supabaseClient.from('pages').upsert({
             id: page.id,
             user_id: currentUser.id,
             url: page.url,
@@ -82,8 +92,11 @@ async function savePageToCloud(page) {
             read: page.read || false,
             saved_at: page.savedAt || new Date().toISOString()
         });
+
+        if (error) throw error;
+        console.log('Cloud save success!');
     } catch (e) {
-        console.error('Cloud save error:', e);
+        console.error('Cloud save failed:', e.message);
     }
 }
 
@@ -111,7 +124,7 @@ async function loadPagesFromCloud() {
             savedAt: item.saved_at
         }));
     } catch (e) {
-        console.error('Cloud load error:', e);
+        console.error('Cloud load failed:', e.message);
         return [];
     }
 }
@@ -120,9 +133,10 @@ async function loadPagesFromCloud() {
 async function deletePageFromCloud(pageId) {
     if (!currentUser) return;
     try {
-        await supabaseClient.from('pages').delete().eq('id', pageId).eq('user_id', currentUser.id);
+        const { error } = await supabaseClient.from('pages').delete().eq('id', pageId).eq('user_id', currentUser.id);
+        if (error) throw error;
     } catch (e) {
-        console.error('Cloud delete error:', e);
+        console.error('Cloud delete failed:', e.message);
     }
 }
 
@@ -130,9 +144,10 @@ async function deletePageFromCloud(pageId) {
 async function updatePageInCloud(pageId, updates) {
     if (!currentUser) return;
     try {
-        await supabaseClient.from('pages').update(updates).eq('id', pageId).eq('user_id', currentUser.id);
+        const { error } = await supabaseClient.from('pages').update(updates).eq('id', pageId).eq('user_id', currentUser.id);
+        if (error) throw error;
     } catch (e) {
-        console.error('Cloud update error:', e);
+        console.error('Cloud update failed:', e.message);
     }
 }
 
@@ -140,25 +155,31 @@ async function updatePageInCloud(pageId, updates) {
 
 async function syncData() {
     if (!currentUser) return;
-    console.log('Syncing data...');
+    console.log('Syncing data for user:', currentUser.email);
 
-    // 1. クラウドから最新取得
+    // 1. クラウドから取得
     const cloudPages = await loadPagesFromCloud();
+    console.log('Cloud pages found:', cloudPages.length);
 
-    // 2. ローカル取得
+    // 2. ローカルから取得
     const localPages = JSON.parse(localStorage.getItem('readlater_pages') || '[]');
 
     // 3. マージ
     const pageMap = new Map();
-    localPages.forEach(p => pageMap.set(p.id, p));
-    cloudPages.forEach(p => pageMap.set(p.id, p)); // クラウド優先
+    // クラウド側を正義として追加
+    cloudPages.forEach(p => pageMap.set(p.id, p));
 
-    // 4. 未保存分をクラウドへ
+    // 4. ローカルにしか存在しないものをクラウドに上げる
+    let uploadCount = 0;
     for (const p of localPages) {
-        if (!cloudPages.find(cp => cp.id === p.id)) {
+        if (!pageMap.has(p.id)) {
             await savePageToCloud(p);
+            pageMap.set(p.id, p);
+            uploadCount++;
         }
     }
+
+    if (uploadCount > 0) console.log(`Uploaded ${uploadCount} new pages to cloud.`);
 
     const finalPages = Array.from(pageMap.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
     return finalPages;
@@ -177,6 +198,7 @@ async function onSignIn() {
 // サインアウト時
 function onSignOut() {
     updateAuthUI();
+    // ログアウト時は単にリロードしてクリーンにする
 }
 
 // UI更新
@@ -187,7 +209,7 @@ function updateAuthUI() {
     if (currentUser) {
         container.innerHTML = `
             <div class="user-info">
-                <img src="${currentUser.user_metadata.avatar_url || ''}" class="user-avatar" alt="avatar">
+                <img src="${currentUser.user_metadata.avatar_url || ''}" class="user-avatar" alt="avatar" onerror="this.style.display='none'">
                 <span class="user-name">${currentUser.user_metadata.full_name || currentUser.email}</span>
                 <button class="btn-signout" onclick="signOut()">ログアウト</button>
             </div>
