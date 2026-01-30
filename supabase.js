@@ -40,11 +40,12 @@ async function initializeSupabase() {
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             if (session) {
-                // URLのハッシュを消去
                 if (window.location.hash.includes('access_token')) {
                     window.history.replaceState(null, null, window.location.pathname);
                 }
                 onSignIn();
+                // 拡張機能にセッションを送信（ブリッジ機能）
+                sendSessionToExtension(session);
             }
         } else if (event === 'SIGNED_OUT') {
             onSignOut();
@@ -63,11 +64,35 @@ async function initializeSupabase() {
                     await onSignIn();
                 }
                 updateAuthUI();
+                // 拡張機能にセッションを送信
+                sendSessionToExtension(session);
             }
         } catch (e) {
             console.warn('Initial session check failed:', e);
         }
     }, 500);
+}
+
+// 拡張機能へセッションを送る
+function sendSessionToExtension(session) {
+    const EXTENSION_ID = 'fnkkpddniihppcmnjpnobknhdobojhfd';
+    if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        console.log('Sending session to extension:', EXTENSION_ID);
+        try {
+            chrome.runtime.sendMessage(EXTENSION_ID, {
+                type: 'AUTH_SESSION',
+                session: session
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.log('Extension verify check: Not installed or mismatch', chrome.runtime.lastError);
+                } else {
+                    console.log('Extension confirmed receipt:', response);
+                }
+            });
+        } catch (e) {
+            console.log('Failed to send to extension (may not be installed):', e);
+        }
+    }
 }
 
 // すぐに初期化
