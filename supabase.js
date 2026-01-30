@@ -106,6 +106,16 @@ if (document.readyState === 'loading') {
 async function signInWithGoogle() {
     try {
         console.log('Redirecting to Google Login...');
+
+        // Extension(iframe)内で実行されているか確認
+        if (window.self !== window.top) {
+            console.log('Running in iframe, opening popup...');
+            // Iframe内ではGoogleログインがブロックされるため、別ウィンドウで開く
+            window.open(window.location.href, '_blank');
+            if (window.showToast) window.showToast('別タブでログイン画面を開きました。ログイン後に「🔄」ボタンを押してください', 'info');
+            return;
+        }
+
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
