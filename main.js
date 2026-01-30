@@ -537,3 +537,67 @@ function generateTags(title, url, excerpt) {
 
     return [...new Set(tags)];
 }
+
+// ---------------------------------------------------------
+// Extension Bridge Interface
+// ---------------------------------------------------------
+
+// Extensionからのメッセージ受信
+window.addEventListener('message', async (event) => {
+    // 必要であればここで event.origin をチェック
+    console.log('Message received from extension:', event.data);
+
+    if (event.data.type === 'SAVE_PAGE_REQUEST') {
+        const { url, title, favicon } = event.data.payload;
+
+        // 保存処理を実行
+        await handleExternalSave(url, title, favicon);
+
+        // 完了応答を返す
+        if (event.source) {
+            event.source.postMessage({ type: 'PAGE_SAVED_SUCCESS' }, event.origin);
+        }
+    }
+});
+
+// 外部からの保存リクエスト処理
+async function handleExternalSave(url, title, favicon) {
+    if (!url) return;
+
+    // 重複チェック
+    if (allPages.some(p => p.url === url)) {
+        showToast('すでに保存されています', 'info');
+        return;
+    }
+
+    // ドメイン抽出
+    let domain = '';
+    try {
+        domain = new URL(url).hostname;
+    } catch (e) {
+        domain = 'unknown';
+    }
+
+    const page = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        url: url,
+        title: title || 'Untitled',
+        favicon: favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+        domain: domain,
+        excerpt: '',
+        tags: generateTags(title, url, ''),
+        read: false,
+        savedAt: new Date().toISOString()
+    };
+
+    // リストの先頭に追加
+    allPages.unshift(page);
+    await savePages();
+    renderCurrentView();
+    showToast('保存しました！', 'success');
+
+    // クラウド同期
+    if (typeof savePageToCloud === 'function') {
+        await savePageToCloud(page);
+    }
+}
