@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ReadLater Auth Bridge</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div style="text-align: center; padding: 20px; font-family: sans-serif;">
+        <h3>認証情報を同期中...</h3>
+        <p id="status">拡張機能と連携しています。</p>
+    </div>
+
+    <script>
+        // SupabaseのセッションをlocalStorageから取得
+        // Supabaseは 'sb-[project-id]-auth-token' というキーで保存する
+        const PROJECT_ID = 'sreimiuxlfqlifkrlwhv'; // 取得したURLから判定
+        const storageKey = `sb-${PROJECT_ID}-auth-token`;
+        
+        function sendSession() {
+            const sessionData = localStorage.getItem(storageKey);
+            
+            if (sessionData) {
+                const session = JSON.parse(sessionData);
+                // 拡張機能にメッセージを送信
+                // 拡張機能IDを指定するか、runtime.sendMessageを試みる
+                // Webページから拡張機能への送信には、外部接続の許可が必要 (manifest.json)
+                
+                window.parent.postMessage({ type: 'READLATER_AUTH', session: session }, '*');
+                
+                // また、URLクエリパラメータに拡張機能IDがある場合は直接送信を試みる
+                const params = new URLSearchParams(window.location.search);
+                const extId = params.get('extId');
+                
+                if (extId && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                    chrome.runtime.sendMessage(extId, { type: 'AUTH_SESSION', session: session }, (response) => {
+                        document.getElementById('status').textContent = '同期完了！このウィンドウを閉じても大丈夫です。';
+                        setTimeout(() => window.close(), 1000);
+                    });
+                } else {
+                    document.getElementById('status').textContent = '準備完了。拡張機能のボタンをクリックしてください。';
+                }
+            } else {
+                document.getElementById('status').innerHTML = 'ログイン情報が見つかりません。<br><a href="/login.html">ログイン画面へ</a>';
+            }
+        }
+
+        window.onload = sendSession;
+    </script>
+</body>
+</html>

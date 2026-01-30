@@ -153,20 +153,21 @@ async function updatePageInCloud(pageId, updates) {
 
 // --- 同期ロジック ---
 
+let realtimeChannel = null;
+
 async function syncData() {
     if (!currentUser) return;
     console.log('Syncing data for user:', currentUser.email);
 
     // 1. クラウドから取得
     const cloudPages = await loadPagesFromCloud();
-    console.log('Cloud pages found:', cloudPages.length);
-
+    
     // 2. ローカルから取得
     const localPages = JSON.parse(localStorage.getItem('readlater_pages') || '[]');
 
     // 3. マージ
     const pageMap = new Map();
-    // クラウド側を正義として追加
+    // クラウド側を優先
     cloudPages.forEach(p => pageMap.set(p.id, p));
 
     // 4. ローカルにしか存在しないものをクラウドに上げる
@@ -179,10 +180,39 @@ async function syncData() {
         }
     }
 
-    if (uploadCount > 0) console.log(`Uploaded ${uploadCount} new pages to cloud.`);
-
     const finalPages = Array.from(pageMap.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    
+    // リアルタイム購読開始
+    subscribeToChanges();
+    
     return finalPages;
+}
+
+// リアルタイム購読
+function subscribeToChanges() {
+    if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+    }
+
+    console.log('Starting Realtime subscription...');
+    realtimeChannel = supabaseClient
+        .channel('public:pages')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'pages',
+            filter: `user_id=eq.${currentUser.id}`
+        }, async (payload) => {
+            console.log('Realtime change received:', payload.eventType);
+            
+            // 最新データを再取得して UIを更新
+            const updatedPages = await loadPagesFromCloud();
+            if (typeof window.updateAllPages === 'function') {
+                window.updateAllPages(updatedPages);
+                localStorage.setItem('readlater_pages', JSON.stringify(updatedPages));
+            }
+        })
+        .subscribe();
 }
 
 // サインイン時
@@ -197,8 +227,11 @@ async function onSignIn() {
 
 // サインアウト時
 function onSignOut() {
+    if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+        realtimeChannel = null;
+    }
     updateAuthUI();
-    // ログアウト時は単にリロードしてクリーンにする
 }
 
 // UI更新
@@ -207,10 +240,13 @@ function updateAuthUI() {
     if (!container) return;
 
     if (currentUser) {
+        const avatar = currentUser.user_metadata?.avatar_url || '';
+        const name = currentUser.user_metadata?.full_name || currentUser.email;
+
         container.innerHTML = `
             <div class="user-info">
-                <img src="${currentUser.user_metadata.avatar_url || ''}" class="user-avatar" alt="avatar" onerror="this.style.display='none'">
-                <span class="user-name">${currentUser.user_metadata.full_name || currentUser.email}</span>
+                ${avatar ? `<img src="${avatar}" class="user-avatar" alt="avatar">` : '<div class="user-avatar-placeholder"></div>'}
+                <span class="user-name">${name}</span>
                 <button class="btn-signout" onclick="signOut()">ログアウト</button>
             </div>
         `;
