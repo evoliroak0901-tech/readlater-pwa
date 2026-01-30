@@ -13,7 +13,7 @@ let currentUser = null;
 let supabaseInitialized = false;
 
 // 初期化関数
-function initializeSupabase() {
+async function initializeSupabase() {
     if (supabaseInitialized) return;
     supabaseInitialized = true;
 
@@ -21,15 +21,17 @@ function initializeSupabase() {
 
     // 認証状態の監視
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state change event:', event);
         currentUser = session?.user ?? null;
-        console.log('Auth state change:', event, currentUser?.email);
 
-        // UIを即座に更新（同期を待たせない）
         updateAuthUI();
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             if (session) {
-                // セッションがある場合は同期開始
+                // URLのハッシュを消去
+                if (window.location.hash) {
+                    window.history.replaceState(null, null, window.location.pathname);
+                }
                 onSignIn();
             }
         } else if (event === 'SIGNED_OUT') {
@@ -37,9 +39,22 @@ function initializeSupabase() {
         }
     });
 
-    // 初期UI表示（セッション待ちの間も表示）
+    // 強制的なセッションチェック
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            currentUser = session.user;
+            await onSignIn();
+        }
+    } catch (e) {
+        console.warn('Initial session check failed:', e);
+    }
+
     updateAuthUI();
 }
+
+// すぐに初期化（DOMContentLoadedを待たない）
+initializeSupabase();
 
 // Googleログイン
 async function signInWithGoogle() {
