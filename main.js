@@ -558,6 +558,24 @@ window.addEventListener('message', async (event) => {
             event.source.postMessage({ type: 'PAGE_SAVED_SUCCESS' }, event.origin);
         }
     }
+
+    // セッション注入（Extensionからの同期）
+    if (event.data.type === 'INJECT_SESSION' && event.data.sessionStr) {
+        console.log('Received session from extension, applying...');
+        try {
+            // Supabaseのキーを探す（または固定）- プロジェクトID変更時はここを確認
+            const keySearch = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+            const key = keySearch || 'sb-sreimiuxlfqlifkrlwhv-auth-token';
+
+            if (localStorage.getItem(key) !== event.data.sessionStr) {
+                localStorage.setItem(key, event.data.sessionStr);
+                showToast('ログイン情報を同期しました。リロードします...', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        } catch (e) {
+            console.error('Session injection failed:', e);
+        }
+    }
 });
 
 // 外部からの保存リクエスト処理
