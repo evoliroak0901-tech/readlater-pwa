@@ -20,26 +20,25 @@ function initializeSupabase() {
     console.log('Supabase Initializing...');
 
     // 認証状態の監視
-    supabaseClient.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         currentUser = session?.user ?? null;
-        console.log('Auth event:', event, currentUser?.email);
+        console.log('Auth state change:', event, currentUser?.email);
+
+        // UIを即座に更新（同期を待たせない）
+        updateAuthUI();
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-            onSignIn();
+            if (session) {
+                // セッションがある場合は同期開始
+                onSignIn();
+            }
         } else if (event === 'SIGNED_OUT') {
             onSignOut();
         }
     });
 
-    // 初期セッションチェック
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            currentUser = session.user;
-            onSignIn();
-        } else {
-            updateAuthUI();
-        }
-    });
+    // 初期UI表示（セッション待ちの間も表示）
+    updateAuthUI();
 }
 
 // Googleログイン
@@ -157,39 +156,43 @@ let realtimeChannel = null;
 
 async function syncData() {
     if (!currentUser) return;
-    console.log('Syncing data for user:', currentUser.email);
+    try {
+        console.log('Syncing data for user:', currentUser.email);
 
-    // 1. クラウドから取得
-    const cloudPages = await loadPagesFromCloud();
-    
-    // 2. ローカルから取得
-    const localPages = JSON.parse(localStorage.getItem('readlater_pages') || '[]');
+        // 1. クラウドから取得
+        const cloudPages = await loadPagesFromCloud();
 
-    // 3. マージ
-    const pageMap = new Map();
-    // クラウド側を優先
-    cloudPages.forEach(p => pageMap.set(p.id, p));
+        // 2. ローカルから取得
+        const localPages = JSON.parse(localStorage.getItem('readlater_pages') || '[]');
 
-    // 4. ローカルにしか存在しないものをクラウドに上げる
-    let uploadCount = 0;
-    for (const p of localPages) {
-        if (!pageMap.has(p.id)) {
-            await savePageToCloud(p);
-            pageMap.set(p.id, p);
-            uploadCount++;
+        // 3. マージ
+        const pageMap = new Map();
+        // クラウド側を優先
+        cloudPages.forEach(p => pageMap.set(p.id, p));
+
+        // 4. ローカルにしか存在しないものをクラウドに上げる
+        for (const p of localPages) {
+            if (!pageMap.has(p.id)) {
+                await savePageToCloud(p);
+                pageMap.set(p.id, p);
+            }
         }
-    }
 
-    const finalPages = Array.from(pageMap.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
-    
-    // リアルタイム購読開始
-    subscribeToChanges();
-    
-    return finalPages;
+        const finalPages = Array.from(pageMap.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+        // リアルタイム購読開始
+        subscribeToChanges();
+
+        return finalPages;
+    } catch (e) {
+        console.error('Sync failed:', e);
+        return JSON.parse(localStorage.getItem('readlater_pages') || '[]');
+    }
 }
 
 // リアルタイム購読
 function subscribeToChanges() {
+    if (!currentUser) return;
     if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
     }
@@ -197,14 +200,14 @@ function subscribeToChanges() {
     console.log('Starting Realtime subscription...');
     realtimeChannel = supabaseClient
         .channel('public:pages')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'pages',
             filter: `user_id=eq.${currentUser.id}`
         }, async (payload) => {
             console.log('Realtime change received:', payload.eventType);
-            
+
             // 最新データを再取得して UIを更新
             const updatedPages = await loadPagesFromCloud();
             if (typeof window.updateAllPages === 'function') {
@@ -217,12 +220,19 @@ function subscribeToChanges() {
 
 // サインイン時
 async function onSignIn() {
-    const syncedPages = await syncData();
-    if (syncedPages && typeof window.updateAllPages === 'function') {
-        window.updateAllPages(syncedPages);
-        localStorage.setItem('readlater_pages', JSON.stringify(syncedPages));
-    }
+    console.log('Handling Sign In UI and Sync...');
+    // UIは既に onAuthStateChange で更新されているはずだが、念のため
     updateAuthUI();
+
+    try {
+        const syncedPages = await syncData();
+        if (syncedPages && typeof window.updateAllPages === 'function') {
+            window.updateAllPages(syncedPages);
+            localStorage.setItem('readlater_pages', JSON.stringify(syncedPages));
+        }
+    } catch (e) {
+        console.error('Sync error in onSignIn:', e);
+    }
 }
 
 // サインアウト時
