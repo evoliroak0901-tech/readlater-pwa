@@ -13,11 +13,23 @@ let currentUser = null;
 let supabaseInitialized = false;
 
 // 初期化関数
+// 初期化関数
 async function initializeSupabase() {
     if (supabaseInitialized) return;
     supabaseInitialized = true;
 
     console.log('Supabase Initializing...');
+
+    // URLにアクセストークンがある場合の特別対応
+    const hasTokenInUrl = window.location.hash.includes('access_token') ||
+        window.location.hash.includes('type=recovery');
+
+    if (hasTokenInUrl) {
+        console.log('Token detected in URL, waiting for Supabase...');
+        // UIをローディング状態に
+        const container = document.getElementById('authContainer');
+        if (container) container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">接続中...</div>';
+    }
 
     // 認証状態の監視
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
@@ -26,10 +38,10 @@ async function initializeSupabase() {
 
         updateAuthUI();
 
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             if (session) {
                 // URLのハッシュを消去
-                if (window.location.hash) {
+                if (window.location.hash.includes('access_token')) {
                     window.history.replaceState(null, null, window.location.pathname);
                 }
                 onSignIn();
@@ -39,22 +51,31 @@ async function initializeSupabase() {
         }
     });
 
-    // 強制的なセッションチェック
-    try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            currentUser = session.user;
-            await onSignIn();
-        }
-    } catch (e) {
-        console.warn('Initial session check failed:', e);
-    }
+    // 強制的なセッションチェック（少し待ってから実行）
+    setTimeout(async () => {
+        try {
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            if (error) throw error;
 
-    updateAuthUI();
+            if (session) {
+                currentUser = session.user;
+                if (!window.location.hash.includes('access_token')) {
+                    await onSignIn();
+                }
+                updateAuthUI();
+            }
+        } catch (e) {
+            console.warn('Initial session check failed:', e);
+        }
+    }, 500);
 }
 
-// すぐに初期化（DOMContentLoadedを待たない）
-initializeSupabase();
+// すぐに初期化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeSupabase);
+} else {
+    initializeSupabase();
+}
 
 // Googleログイン
 async function signInWithGoogle() {
