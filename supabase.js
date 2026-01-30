@@ -135,6 +135,7 @@ async function signOut() {
 async function savePageToCloud(page) {
     if (!currentUser) {
         console.warn('Cannot save: User not logged in');
+        if (window.showToast) window.showToast('クラウド保存失敗: ログインしていません', 'error');
         return;
     }
 
@@ -155,8 +156,10 @@ async function savePageToCloud(page) {
 
         if (error) throw error;
         console.log('Cloud save success!');
+        // 成功時はうるさいのでトースト出さないか、控えめに
     } catch (e) {
         console.error('Cloud save failed:', e.message);
+        if (window.showToast) window.showToast(`クラウド保存エラー: ${e.message}`, 'error');
     }
 }
 
@@ -185,6 +188,7 @@ async function loadPagesFromCloud() {
         }));
     } catch (e) {
         console.error('Cloud load failed:', e.message);
+        if (window.showToast) window.showToast(`データ取得エラー: ${e.message}`, 'error');
         return [];
     }
 }
