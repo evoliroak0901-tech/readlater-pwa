@@ -33,32 +33,44 @@ async function initializeSupabase() {
 
     // 認証状態の監視
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state change event:', event);
+        console.log('🔐 Auth state change event:', event);
+        console.log('📧 Session user:', session?.user?.email || 'No user');
+        console.log('🔑 Session exists:', !!session);
         currentUser = session?.user ?? null;
 
         updateAuthUI();
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             if (session) {
+                console.log('✅ Login successful! User:', session.user.email);
                 if (window.location.hash.includes('access_token')) {
+                    console.log('🧹 Cleaning URL hash...');
                     window.history.replaceState(null, null, window.location.pathname);
                 }
                 onSignIn();
                 // 拡張機能にセッションを送信（ブリッジ機能）
                 sendSessionToExtension(session);
+            } else {
+                console.warn('⚠️ Event fired but no session found');
             }
         } else if (event === 'SIGNED_OUT') {
+            console.log('👋 User signed out');
             onSignOut();
         }
     });
 
     // 強制的なセッションチェック（少し待ってから実行）
     setTimeout(async () => {
+        console.log('🔍 Manual session check starting...');
         try {
             const { data: { session }, error } = await supabaseClient.auth.getSession();
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Session retrieval error:', error);
+                throw error;
+            }
 
             if (session) {
+                console.log('✅ Manual session found:', session.user.email);
                 currentUser = session.user;
                 if (!window.location.hash.includes('access_token')) {
                     await onSignIn();
@@ -66,9 +78,11 @@ async function initializeSupabase() {
                 updateAuthUI();
                 // 拡張機能にセッションを送信
                 sendSessionToExtension(session);
+            } else {
+                console.warn('⚠️ No session found in manual check');
             }
         } catch (e) {
-            console.warn('Initial session check failed:', e);
+            console.error('❌ Initial session check failed:', e);
         }
     }, 500);
 }
