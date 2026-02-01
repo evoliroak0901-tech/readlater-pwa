@@ -1,6 +1,6 @@
 // Service Worker for ReadLater PWA
 
-const CACHE_NAME = 'readlater-v1';
+const CACHE_NAME = 'readlater-v2';
 const urlsToCache = [
     '/',
     '/index.html',

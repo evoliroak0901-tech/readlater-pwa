@@ -1058,18 +1058,32 @@ async function handleExternalSave(url, title, favicon) {
         }
     }
 
-    // タイトル・画像・抜粋が提供されていない場合、自動取得を試みる
+    // タイトル・画像・抜粋を自動取得（常に実行してより良い情報を取得）
     let finalTitle = title;
     let finalImage = favicon;
     let finalExcerpt = '';
 
-    if (!finalTitle || finalTitle === 'Untitled') {
+    // タイトルが不十分な場合の判定
+    const needsMetadata = !finalTitle
+        || finalTitle === 'Untitled'
+        || finalTitle === finalUrl
+        || finalTitle.length < 5
+        || finalTitle.startsWith('http')
+        || !finalImage; // 画像がない場合も取得を試みる
+
+    if (needsMetadata) {
+        console.log('📡 Fetching metadata because:', {
+            noTitle: !finalTitle,
+            isUntitled: finalTitle === 'Untitled',
+            tooShort: finalTitle && finalTitle.length < 5,
+            noImage: !finalImage
+        });
         const metadata = await fetchPageMetadata(finalUrl);
-        if (metadata.title) {
+        if (metadata.title && (!finalTitle || finalTitle === 'Untitled' || finalTitle.startsWith('http'))) {
             finalTitle = metadata.title;
             console.log('✨ Auto-fetched title:', metadata.title);
         }
-        if (metadata.image && !finalImage) {
+        if (metadata.image) {
             finalImage = metadata.image;
             console.log('✨ Auto-fetched image:', metadata.image);
         }
