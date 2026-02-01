@@ -116,6 +116,30 @@ body {
   font-weight: 600;
 }
 
+.settings-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.settings-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+
 /* Search Bar */
 .search-container {
   position: relative;
@@ -873,14 +897,88 @@ kbd {
     /* Prevent zoom on focus */
   }
 }
+
 /* ========== Auth UI ========== */
-#authContainer { display: flex; align-items: center; }
-.btn-signin { display: flex; align-items: center; gap: var(--spacing-sm); padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--bg-primary); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
-.btn-signin:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--primary); }
-.btn-signin svg { flex-shrink: 0; }
-.user-info { display: flex; align-items: center; gap: var(--spacing-sm); }
-.user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-.user-name { font-size: 13px; color: var(--text-primary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.btn-signout { padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px; font-weight: 500; cursor: pointer; transition: var(--transition); }
-.btn-signout:hover { background: var(--bg-hover); color: var(--text-primary); }
-@media (max-width: 640px) { .user-name { display: none; } .btn-signin { padding: 6px 10px; font-size: 0; } .btn-signin svg { margin: 0; } }
+#authContainer {
+  display: flex;
+  align-items: center;
+}
+
+.btn-signin {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--bg-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-signin:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.btn-signin svg {
+  flex-shrink: 0;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-signout {
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-signout:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .user-name {
+    display: none;
+  }
+
+  .btn-signin {
+    padding: 6px 10px;
+    font-size: 0;
+  }
+
+  .btn-signin svg {
+    margin: 0;
+  }
+}
