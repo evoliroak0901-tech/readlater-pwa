@@ -114,7 +114,8 @@ async function loadPages() {
     // タグを配列に正規化（古いデータとの互換性）
     allPages = allPages.map(page => ({
         ...page,
-        tags: Array.isArray(page.tags) ? page.tags : []
+        tags: Array.isArray(page.tags) ? page.tags : [],
+        sns: page.sns || detectSNS(page.url)
     }));
 
     updateCounts();
@@ -158,6 +159,9 @@ function renderCurrentView() {
             break;
         case 'tags':
             renderTagsView();
+            break;
+        case 'sns':
+            renderSNSView();
             break;
     }
 
@@ -255,6 +259,49 @@ function renderTagsView() {
     });
 }
 
+// SNS別ビューを表示
+function renderSNSView() {
+    const container = document.getElementById('snsGrid');
+    const snsMap = new Map();
+
+    allPages.forEach(page => {
+        const snsKey = page.sns?.name || 'その他';
+        const count = snsMap.get(snsKey) || 0;
+        snsMap.set(snsKey, count + 1);
+    });
+
+    const snsList = Array.from(snsMap.entries())
+        .map(([name, count]) => {
+            const snsInfo = SNS_PLATFORMS.find(p => p.name === name) || {
+                name: 'その他',
+                icon: '🔗',
+                color: '#475569'
+            };
+            return { ...snsInfo, count };
+        })
+        .sort((a, b) => b.count - a.count);
+
+    container.innerHTML = snsList.map(sns => `
+    <div class="sns-card" data-sns="${sns.name}">
+      <div class="sns-icon" style="background-color: ${sns.color}">
+        ${sns.icon}
+      </div>
+      <div class="sns-name">${sns.name}</div>
+      <div class="sns-count">${sns.count}件</div>
+    </div>
+  `).join('');
+
+    // SNSカードクリックで該当ページを表示
+    container.querySelectorAll('.sns-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const snsName = card.dataset.sns;
+            searchQuery = snsName;
+            document.getElementById('searchInput').value = snsName;
+            switchTab('all');
+        });
+    });
+}
+
 // ページアイテムのHTML生成
 function createPageItemHTML(page) {
     const date = new Date(page.savedAt);
@@ -339,7 +386,7 @@ function filterPages(pages) {
     if (!searchQuery) return pages;
 
     return pages.filter(page => {
-        const searchText = `${page.title} ${page.domain} ${page.tags.join(' ')}`.toLowerCase();
+        const searchText = `${page.title} ${page.domain} ${page.tags.join(' ')} ${page.sns?.name || ''}`.toLowerCase();
         return searchText.includes(searchQuery);
     });
 }
@@ -522,13 +569,17 @@ async function saveNewPage() {
         return;
     }
 
+    // テキストからURLを抽出（TikTokなどのシェア対策）
+    const extractedUrl = extractUrl(urlInput);
+    const finalUrlInput = extractedUrl || urlInput;
+
     let url = '';
     let title = titleInput;
     let domain = '';
     let favicon = '';
 
-    if (urlInput.match(/^https?:\/\//)) {
-        url = urlInput;
+    if (finalUrlInput.match(/^https?:\/\//)) {
+        url = finalUrlInput;
         try {
             const urlObj = new URL(url);
             domain = urlObj.hostname;
@@ -538,8 +589,10 @@ async function saveNewPage() {
             console.error('Invalid URL:', e);
         }
     } else {
-        title = urlInput;
+        title = finalUrlInput;
     }
+
+    const snsInfo = detectSNS(url);
 
     const page = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -548,6 +601,7 @@ async function saveNewPage() {
         favicon: favicon,
         domain: domain,
         excerpt: noteInput,
+        sns: snsInfo,
         tags: await generateTags(title, url, noteInput),
         read: false,
         savedAt: new Date().toISOString()
@@ -719,8 +773,11 @@ window.addEventListener('message', async (event) => {
 async function handleExternalSave(url, title, favicon) {
     if (!url) return;
 
+    // テキストからURLを抽出
+    const finalUrl = extractUrl(url) || url;
+
     // 重複チェック
-    if (allPages.some(p => p.url === url)) {
+    if (allPages.some(p => p.url === finalUrl)) {
         showToast('すでに保存されています', 'info');
         return;
     }
@@ -728,19 +785,22 @@ async function handleExternalSave(url, title, favicon) {
     // ドメイン抽出
     let domain = '';
     try {
-        domain = new URL(url).hostname;
+        domain = new URL(finalUrl).hostname;
     } catch (e) {
         domain = 'unknown';
     }
 
+    const snsInfo = detectSNS(finalUrl);
+
     const page = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        url: url,
+        url: finalUrl,
         title: title || 'Untitled',
         favicon: favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
         domain: domain,
         excerpt: '',
-        tags: generateTags(title, url, ''),
+        sns: snsInfo,
+        tags: await generateTags(title, finalUrl, ''),
         read: false,
         savedAt: new Date().toISOString()
     };
@@ -755,4 +815,38 @@ async function handleExternalSave(url, title, favicon) {
     if (typeof savePageToCloud === 'function') {
         await savePageToCloud(page);
     }
+}
+
+// ---------------------------------------------------------
+// SNSヘルパー関数
+// ---------------------------------------------------------
+
+const SNS_PLATFORMS = [
+    { name: 'TikTok', icon: '🎵', color: '#000000', domains: ['tiktok.com'] },
+    { name: 'X', icon: '𝕏', color: '#000000', domains: ['x.com', 'twitter.com', 't.co'] },
+    { name: 'Instagram', icon: '📷', color: '#E4405F', domains: ['instagram.com'] },
+    { name: 'YouTube', icon: '▶️', color: '#FF0000', domains: ['youtube.com', 'youtu.be'] },
+    { name: 'GitHub', icon: '🐙', color: '#181717', domains: ['github.com'] },
+    { name: 'Note', icon: '📝', color: '#41C9B4', domains: ['note.com'] },
+    { name: 'Medium', icon: 'Ⓜ️', color: '#000000', domains: ['medium.com'] },
+    { name: 'Qiita', icon: '📚', color: '#55C500', domains: ['qiita.com'] },
+    { name: 'Zenn', icon: '⚡', color: '#3EA8FF', domains: ['zenn.dev'] }
+];
+
+function detectSNS(url) {
+    if (!url) return null;
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        const platform = SNS_PLATFORMS.find(p => p.domains.some(d => hostname.includes(d)));
+        return platform ? { name: platform.name, icon: platform.icon, color: platform.color } : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function extractUrl(text) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const matches = text.match(urlRegex);
+    return matches ? matches[0] : null;
 }
