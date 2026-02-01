@@ -199,7 +199,7 @@ async function savePageToCloud(page) {
             favicon: page.favicon,
             domain: page.domain,
             excerpt: page.excerpt,
-            tags: page.tags || [],
+            tags: Array.isArray(page.tags) ? page.tags : [],
             read: page.read || false,
             saved_at: page.savedAt || new Date().toISOString()
         });
