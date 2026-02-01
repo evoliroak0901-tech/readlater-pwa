@@ -573,6 +573,16 @@ async function saveNewPage() {
     const extractedUrl = extractUrl(urlInput);
     const finalUrlInput = extractedUrl || urlInput;
 
+    // 重複チェック
+    if (finalUrlInput && finalUrlInput.match(/^https?:\/\//)) {
+        const normalizedInput = normalizeUrl(finalUrlInput);
+        if (allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
+            showToast('すでに保存されています', 'info');
+            closeDialog();
+            return;
+        }
+    }
+
     let url = '';
     let title = titleInput;
     let domain = '';
@@ -777,9 +787,12 @@ async function handleExternalSave(url, title, favicon) {
     const finalUrl = extractUrl(url) || url;
 
     // 重複チェック
-    if (allPages.some(p => p.url === finalUrl)) {
-        showToast('すでに保存されています', 'info');
-        return;
+    if (finalUrl && finalUrl.match(/^https?:\/\//)) {
+        const normalizedInput = normalizeUrl(finalUrl);
+        if (allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
+            showToast('すでに保存されています', 'info');
+            return;
+        }
     }
 
     // ドメイン抽出
@@ -849,4 +862,24 @@ function extractUrl(text) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlRegex);
     return matches ? matches[0] : null;
+}
+
+function normalizeUrl(url) {
+    if (!url) return '';
+    try {
+        const u = new URL(url);
+        // トラッキングパラメータの削除
+        const paramsToRemove = ['_t', '_r', 'is_from_webapp', 'sender_device', 'share_app_id', 'share_link_id', 'share_item_id'];
+        paramsToRemove.forEach(p => u.searchParams.delete(p));
+        // 末尾のスラッシュを削除して比べるための正規化
+        let normalized = u.origin + u.pathname;
+        if (normalized.endsWith('/')) {
+            normalized = normalized.slice(0, -1);
+        }
+        // 残りのクエリパラメータを結合（重要なパラメータが残っている場合のため）
+        const search = u.search;
+        return (normalized + search).toLowerCase();
+    } catch (e) {
+        return url.trim().replace(/\/$/, '').toLowerCase();
+    }
 }
