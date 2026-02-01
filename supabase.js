@@ -342,8 +342,13 @@ async function onSignIn() {
     try {
         const syncedPages = await syncData();
         if (syncedPages && typeof window.updateAllPages === 'function') {
-            window.updateAllPages(syncedPages);
-            localStorage.setItem('readlater_pages', JSON.stringify(syncedPages));
+            // タグを配列に正規化（古いデータとの互換性）
+            const normalizedPages = syncedPages.map(page => ({
+                ...page,
+                tags: Array.isArray(page.tags) ? page.tags : []
+            }));
+            window.updateAllPages(normalizedPages);
+            localStorage.setItem('readlater_pages', JSON.stringify(normalizedPages));
         }
     } catch (e) {
         console.error('Sync error in onSignIn:', e);

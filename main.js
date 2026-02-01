@@ -110,6 +110,13 @@ function setupEventListeners() {
 async function loadPages() {
     const stored = localStorage.getItem('readlater_pages');
     allPages = stored ? JSON.parse(stored) : [];
+
+    // タグを配列に正規化（古いデータとの互換性）
+    allPages = allPages.map(page => ({
+        ...page,
+        tags: Array.isArray(page.tags) ? page.tags : []
+    }));
+
     updateCounts();
 }
 
@@ -273,7 +280,7 @@ function createPageItemHTML(page) {
           ${timeAgo}
         </div>
         <div class="page-tags">
-          ${page.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+          ${(Array.isArray(page.tags) ? page.tags : []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
         </div>
         <div class="page-actions">
           <button class="page-action mark-read" title="${page.read ? '未読にする' : '既読にする'}">
