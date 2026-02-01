@@ -735,11 +735,12 @@ async function generateTags(title, url, excerpt) {
             return [...new Set(tags)];
         }
 
-        const prompt = `以下のWebページのタイトルとURLから、適切なタグを3-5個、日本語で生成してください。
+        const prompt = `以下のWebページの情報から、適切なタグを3-5個、日本語で生成してください。
 タグはカンマ区切りで出力してください。タグのみを出力し、他の説明は不要です。
 
 タイトル: ${title || '不明'}
 URL: ${url || '不明'}
+${excerpt ? `内容: ${excerpt}` : ''}
 
 タグ:`;
 
@@ -794,42 +795,76 @@ URL: ${url || '不明'}
     if (tags.length === 0) {
         tags.push('未分類');
     }
-
     // 重複を削除して返す
     return [...new Set(tags)];
 }
 
-// URLから記事タイトルを自動取得
-async function fetchPageTitle(url) {
+// URLから記事のメタデータ（タイトル、画像、抜粋）を自動取得
+async function fetchPageMetadata(url) {
     try {
-        showToast('タイトルを取得中...', 'info');
+        showToast('記事情報を取得中...', 'info');
 
-        // CORSを回避するため、シンプルなプロキシAPIを使用
-        // または、タイトルだけならOGPタグ取得サービスを利用
+        // CORSを回避するため、プロキシAPIを使用
         const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
 
         if (!response.ok) {
-            console.warn('Failed to fetch page title');
-            return null;
+            console.warn('Failed to fetch page metadata');
+            return { title: null, image: null, excerpt: null };
         }
 
         const data = await response.json();
         const html = data.contents;
 
-        // HTMLからタイトルを抽出（優先順位: og:title > twitter:title > title タグ）
+        // タイトルを抽出（優先順位: og:title > twitter:title > title タグ）
+        let title = null;
         const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
-        if (ogTitleMatch) return ogTitleMatch[1];
+        if (ogTitleMatch) title = ogTitleMatch[1];
 
-        const twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']*)["']/i);
-        if (twitterTitleMatch) return twitterTitleMatch[1];
+        if (!title) {
+            const twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']*)["']/i);
+            if (twitterTitleMatch) title = twitterTitleMatch[1];
+        }
 
-        const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-        if (titleMatch) return titleMatch[1].trim();
+        if (!title) {
+            const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+            if (titleMatch) title = titleMatch[1].trim();
+        }
 
-        return null;
+        // 画像を抽出（優先順位: og:image > twitter:image）
+        let image = null;
+        const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
+        if (ogImageMatch) image = ogImageMatch[1];
+
+        if (!image) {
+            const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']*)["']/i);
+            if (twitterImageMatch) image = twitterImageMatch[1];
+        }
+
+        // 記事の抜粋を取得（優先順位: og:description > meta description）
+        let excerpt = null;
+        const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
+        if (ogDescMatch) excerpt = ogDescMatch[1];
+
+        if (!excerpt) {
+            const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+            if (metaDescMatch) excerpt = metaDescMatch[1];
+        }
+
+        // 本文の一部を抽出（AIタグ生成用）
+        if (!excerpt) {
+            // <p>タグから最初の段落を取得
+            const paragraphMatch = html.match(/<p[^>]*>([^<]{50,300})</i);
+            if (paragraphMatch) {
+                excerpt = paragraphMatch[1].replace(/<[^>]*>/g, '').trim().substring(0, 200);
+            }
+        }
+
+        console.log('✨ Fetched metadata:', { title, image: image ? '(found)' : '(none)', excerpt: excerpt ? excerpt.substring(0, 50) + '...' : '(none)' });
+
+        return { title, image, excerpt };
     } catch (e) {
-        console.error('Error fetching page title:', e);
-        return null;
+        console.error('Error fetching page metadata:', e);
+        return { title: null, image: null, excerpt: null };
     }
 }
 
@@ -891,13 +926,24 @@ async function handleExternalSave(url, title, favicon) {
         }
     }
 
-    // タイトルが提供されていない場合、自動取得を試みる
+    // タイトル・画像・抜粋が提供されていない場合、自動取得を試みる
     let finalTitle = title;
+    let finalImage = favicon;
+    let finalExcerpt = '';
+
     if (!finalTitle || finalTitle === 'Untitled') {
-        const fetchedTitle = await fetchPageTitle(finalUrl);
-        if (fetchedTitle) {
-            finalTitle = fetchedTitle;
-            console.log('✨ Auto-fetched title:', fetchedTitle);
+        const metadata = await fetchPageMetadata(finalUrl);
+        if (metadata.title) {
+            finalTitle = metadata.title;
+            console.log('✨ Auto-fetched title:', metadata.title);
+        }
+        if (metadata.image && !finalImage) {
+            finalImage = metadata.image;
+            console.log('✨ Auto-fetched image:', metadata.image);
+        }
+        if (metadata.excerpt) {
+            finalExcerpt = metadata.excerpt;
+            console.log('✨ Auto-fetched excerpt:', metadata.excerpt.substring(0, 50) + '...');
         }
     }
 
@@ -915,11 +961,11 @@ async function handleExternalSave(url, title, favicon) {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         url: finalUrl,
         title: finalTitle || 'Untitled',
-        favicon: favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+        favicon: finalImage || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
         domain: domain,
-        excerpt: '',
+        excerpt: finalExcerpt,
         sns: snsInfo,
-        tags: await generateTags(finalTitle, finalUrl, ''),
+        tags: await generateTags(finalTitle, finalUrl, finalExcerpt),
         read: false,
         savedAt: new Date().toISOString()
     };
