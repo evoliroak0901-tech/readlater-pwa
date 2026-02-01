@@ -5,7 +5,7 @@ const urlsToCache = [
     '/',
     '/index.html',
     '/style.css',
-    '/app.js',
+    '/main.js',
     '/manifest.json'
 ];
 
@@ -34,19 +34,9 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// フェッチ時はキャッシュファースト戦略 + Share Target処理
+// フェッチ時はキャッシュファースト戦略
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-
-    // /share パスへのリクエストを処理
-    if (url.pathname === '/share' && event.request.method === 'GET') {
-        event.respondWith(
-            Response.redirect('/?url=' + url.searchParams.get('url') +
-                '&title=' + url.searchParams.get('title') +
-                '&text=' + url.searchParams.get('text'), 303)
-        );
-        return;
-    }
 
     // 通常のキャッシュ戦略
     event.respondWith(
