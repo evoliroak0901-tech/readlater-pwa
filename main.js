@@ -799,6 +799,40 @@ URL: ${url || '不明'}
     return [...new Set(tags)];
 }
 
+// URLから記事タイトルを自動取得
+async function fetchPageTitle(url) {
+    try {
+        showToast('タイトルを取得中...', 'info');
+
+        // CORSを回避するため、シンプルなプロキシAPIを使用
+        // または、タイトルだけならOGPタグ取得サービスを利用
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+
+        if (!response.ok) {
+            console.warn('Failed to fetch page title');
+            return null;
+        }
+
+        const data = await response.json();
+        const html = data.contents;
+
+        // HTMLからタイトルを抽出（優先順位: og:title > twitter:title > title タグ）
+        const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
+        if (ogTitleMatch) return ogTitleMatch[1];
+
+        const twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']*)["']/i);
+        if (twitterTitleMatch) return twitterTitleMatch[1];
+
+        const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+        if (titleMatch) return titleMatch[1].trim();
+
+        return null;
+    } catch (e) {
+        console.error('Error fetching page title:', e);
+        return null;
+    }
+}
+
 // ---------------------------------------------------------
 // Extension Bridge Interface
 // ---------------------------------------------------------
@@ -857,6 +891,16 @@ async function handleExternalSave(url, title, favicon) {
         }
     }
 
+    // タイトルが提供されていない場合、自動取得を試みる
+    let finalTitle = title;
+    if (!finalTitle || finalTitle === 'Untitled') {
+        const fetchedTitle = await fetchPageTitle(finalUrl);
+        if (fetchedTitle) {
+            finalTitle = fetchedTitle;
+            console.log('✨ Auto-fetched title:', fetchedTitle);
+        }
+    }
+
     // ドメイン抽出
     let domain = '';
     try {
@@ -870,12 +914,12 @@ async function handleExternalSave(url, title, favicon) {
     const page = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         url: finalUrl,
-        title: title || 'Untitled',
+        title: finalTitle || 'Untitled',
         favicon: favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
         domain: domain,
         excerpt: '',
         sns: snsInfo,
-        tags: await generateTags(title, finalUrl, ''),
+        tags: await generateTags(finalTitle, finalUrl, ''),
         read: false,
         savedAt: new Date().toISOString()
     };
