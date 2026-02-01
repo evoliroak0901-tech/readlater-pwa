@@ -134,6 +134,64 @@ function setupEventListeners() {
             }
         });
     }
+
+    // プルトゥリフレッシュ機能
+    setupPullToRefresh();
+}
+
+// プルトゥリフレッシュ機能の設定
+function setupPullToRefresh() {
+    const content = document.querySelector('.content');
+    let startY = 0;
+    let currentY = 0;
+    let isPulling = false;
+
+    content.addEventListener('touchstart', (e) => {
+        // スクロール位置が一番上の時のみ有効
+        if (content.scrollTop === 0) {
+            startY = e.touches[0].pageY;
+            isPulling = true;
+        }
+    }, { passive: true });
+
+    content.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+
+        currentY = e.touches[0].pageY;
+        const pullDistance = currentY - startY;
+
+        // 下に引っ張っている場合（80px以上）
+        if (pullDistance > 80) {
+            // 視覚的フィードバック（オプション）
+            content.style.transform = `translateY(${Math.min(pullDistance / 3, 40)}px)`;
+        }
+    }, { passive: true });
+
+    content.addEventListener('touchend', async () => {
+        if (!isPulling) return;
+
+        const pullDistance = currentY - startY;
+
+        // リセット
+        content.style.transform = '';
+        isPulling = false;
+
+        // 80px以上引っ張った場合、更新を実行
+        if (pullDistance > 80) {
+            showToast('更新中...', 'info');
+
+            // Supabaseから最新データを取得
+            if (typeof syncFromCloud === 'function') {
+                await syncFromCloud();
+            } else {
+                // ローカルデータをリロード
+                await loadPages();
+            }
+
+            renderCurrentView();
+            showToast('更新完了！', 'success');
+        }
+    });
 }
 
 // ページデータ読み込み (LocalStorage使用)
@@ -190,9 +248,6 @@ function renderCurrentView() {
         case 'tags':
             renderTagsView();
             break;
-        case 'sns':
-            renderSNSView();
-            break;
     }
 
     updateCounts();
@@ -215,41 +270,79 @@ function renderUnreadPages() {
     attachPageItemListeners(container);
 }
 
-// サイト別ビューを表示
+// サイト別ビューを表示（SNSも含む）
 function renderSitesView() {
     const container = document.getElementById('sitesGrid');
     const siteMap = new Map();
 
+    // ドメイン別にグループ化
     allPages.forEach(page => {
-        const count = siteMap.get(page.domain) || 0;
-        siteMap.set(page.domain, count + 1);
+        // SNSの場合はSNS名を使用、それ以外はドメインを使用
+        const key = page.sns?.name || page.domain;
+        const count = siteMap.get(key) || 0;
+        siteMap.set(key, count + 1);
     });
 
     const sites = Array.from(siteMap.entries())
-        .map(([domain, count]) => ({
-            domain,
-            count,
-            favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
-            pages: allPages.filter(p => p.domain === domain)
-        }))
+        .map(([key, count]) => {
+            // SNSプラットフォームかどうかをチェック
+            const snsInfo = SNS_PLATFORMS.find(p => p.name === key);
+
+            if (snsInfo) {
+                // SNSの場合
+                return {
+                    name: snsInfo.name,
+                    count,
+                    icon: snsInfo.icon,
+                    color: snsInfo.color,
+                    isSNS: true,
+                    searchKey: key
+                };
+            } else {
+                // 通常のサイトの場合
+                return {
+                    name: key,
+                    count,
+                    favicon: `https://www.google.com/s2/favicons?domain=${key}&sz=64`,
+                    isSNS: false,
+                    searchKey: key
+                };
+            }
+        })
         .sort((a, b) => b.count - a.count);
 
-    container.innerHTML = sites.map(site => `
-    <div class="site-card" data-domain="${site.domain}">
-      <div class="site-icon">
-        <img src="${site.favicon}" alt="${site.domain}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23475569%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
-      </div>
-      <div class="site-name" title="${site.domain}">${site.domain}</div>
-      <div class="site-count">${site.count}件</div>
-    </div>
-  `).join('');
+    container.innerHTML = sites.map(site => {
+        if (site.isSNS) {
+            // SNSカード
+            return `
+            <div class="site-card sns-card" data-search="${site.searchKey}">
+              <div class="site-icon sns-icon" style="background-color: ${site.color}">
+                ${site.icon}
+              </div>
+              <div class="site-name">${site.name}</div>
+              <div class="site-count">${site.count}件</div>
+            </div>
+          `;
+        } else {
+            // 通常のサイトカード
+            return `
+            <div class="site-card" data-search="${site.searchKey}">
+              <div class="site-icon">
+                <img src="${site.favicon}" alt="${site.name}" onerror="this.src='data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23475569%22%3e%3ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3e%3c/svg%3e'">
+              </div>
+              <div class="site-name" title="${site.name}">${site.name}</div>
+              <div class="site-count">${site.count}件</div>
+            </div>
+          `;
+        }
+    }).join('');
 
     // サイトカードクリックで該当ページを表示
     container.querySelectorAll('.site-card').forEach(card => {
         card.addEventListener('click', () => {
-            const domain = card.dataset.domain;
-            searchQuery = domain;
-            document.getElementById('searchInput').value = domain;
+            const searchKey = card.dataset.search;
+            searchQuery = searchKey;
+            document.getElementById('searchInput').value = searchKey;
             switchTab('all');
         });
     });
@@ -284,49 +377,6 @@ function renderTagsView() {
             const tag = item.dataset.tag;
             searchQuery = tag;
             document.getElementById('searchInput').value = tag;
-            switchTab('all');
-        });
-    });
-}
-
-// SNS別ビューを表示
-function renderSNSView() {
-    const container = document.getElementById('snsGrid');
-    const snsMap = new Map();
-
-    allPages.forEach(page => {
-        const snsKey = page.sns?.name || 'その他';
-        const count = snsMap.get(snsKey) || 0;
-        snsMap.set(snsKey, count + 1);
-    });
-
-    const snsList = Array.from(snsMap.entries())
-        .map(([name, count]) => {
-            const snsInfo = SNS_PLATFORMS.find(p => p.name === name) || {
-                name: 'その他',
-                icon: '🔗',
-                color: '#475569'
-            };
-            return { ...snsInfo, count };
-        })
-        .sort((a, b) => b.count - a.count);
-
-    container.innerHTML = snsList.map(sns => `
-    <div class="sns-card" data-sns="${sns.name}">
-      <div class="sns-icon" style="background-color: ${sns.color}">
-        ${sns.icon}
-      </div>
-      <div class="sns-name">${sns.name}</div>
-      <div class="sns-count">${sns.count}件</div>
-    </div>
-  `).join('');
-
-    // SNSカードクリックで該当ページを表示
-    container.querySelectorAll('.sns-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const snsName = card.dataset.sns;
-            searchQuery = snsName;
-            document.getElementById('searchInput').value = snsName;
             switchTab('all');
         });
     });
