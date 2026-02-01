@@ -563,7 +563,7 @@ async function saveNewPage() {
 
     renderCurrentView();
     closeDialog();
-    showToast('保存しました✨', 'success');
+    setTimeout(() => showToast('保存しました✨', 'success'), 100);
 }
 
 // タグ生成（AI + ドメインベース）
