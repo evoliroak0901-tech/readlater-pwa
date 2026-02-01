@@ -85,6 +85,25 @@ function setupEventListeners() {
             }
         });
     }
+
+    // 設定ダイアログ関連
+    const settingsBtn = document.getElementById('settingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const settingsDialog = document.getElementById('settingsDialog');
+
+    if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+    if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+    if (cancelSettingsBtn) cancelSettingsBtn.addEventListener('click', closeSettings);
+    if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettings);
+    if (settingsDialog) {
+        settingsDialog.addEventListener('click', (e) => {
+            if (e.target.id === 'settingsDialog') {
+                closeSettings();
+            }
+        });
+    }
 }
 
 // ページデータ読み込み (LocalStorage使用)
@@ -445,6 +464,46 @@ function closeDialog() {
     }
 }
 
+// 設定ダイアログを開く
+function openSettings() {
+    const settingsDialog = document.getElementById('settingsDialog');
+    const geminiApiKey = document.getElementById('geminiApiKey');
+
+    // 既存のAPIキーを読み込み
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (geminiApiKey && savedKey) {
+        geminiApiKey.value = savedKey;
+    }
+
+    if (settingsDialog) {
+        settingsDialog.classList.add('show');
+    }
+}
+
+// 設定ダイアログを閉じる
+function closeSettings() {
+    const settingsDialog = document.getElementById('settingsDialog');
+    if (settingsDialog) {
+        settingsDialog.classList.remove('show');
+        document.getElementById('geminiApiKey').value = '';
+    }
+}
+
+// 設定を保存
+function saveSettings() {
+    const apiKey = document.getElementById('geminiApiKey').value.trim();
+
+    if (apiKey) {
+        localStorage.setItem('gemini_api_key', apiKey);
+        showToast('設定を保存しました✨', 'success');
+    } else {
+        localStorage.removeItem('gemini_api_key');
+        showToast('APIキーを削除しました', 'success');
+    }
+
+    closeSettings();
+}
+
 // 新しいページ保存
 async function saveNewPage() {
     const urlInput = document.getElementById('urlInput').value.trim();
@@ -532,21 +591,65 @@ async function generateTags(title, url, excerpt) {
         console.error('Domain tag generation error:', e);
     }
 
-    // AI タグ生成を試みる
+    // AI タグ生成を試みる（ユーザーのAPIキーを使用）
     try {
-        const response = await fetch('/api/generate-tags', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ title, url })
-        });
+        const apiKey = localStorage.getItem('gemini_api_key');
+
+        if (!apiKey) {
+            console.log('ℹ️ Gemini API key not set, using domain tags only');
+            if (tags.length === 0) {
+                tags.push('未分類');
+            }
+            return [...new Set(tags)];
+        }
+
+        const prompt = `以下のWebページのタイトルとURLから、適切なタグを3-5個、日本語で生成してください。
+タグはカンマ区切りで出力してください。タグのみを出力し、他の説明は不要です。
+
+タイトル: ${title || '不明'}
+URL: ${url || '不明'}
+
+タグ:`;
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: prompt
+                                }
+                            ]
+                        }
+                    ],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 100,
+                    }
+                })
+            }
+        );
 
         if (response.ok) {
             const data = await response.json();
-            if (data.tags && data.tags.length > 0) {
-                console.log('✨ AI generated tags:', data.tags);
-                tags.push(...data.tags);
+            const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+            // タグを抽出（カンマ区切り）
+            const aiTags = generatedText
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag.length > 0 && tag.length < 20)
+                .slice(0, 5);
+
+            if (aiTags.length > 0) {
+                console.log('✨ AI generated tags:', aiTags);
+                tags.push(...aiTags);
             }
         } else {
             console.warn('AI tag generation failed, using domain tags only');

@@ -31,6 +31,14 @@
                     ReadLater
                 </h1>
                 <div class="header-right">
+                    <button class="settings-btn" id="settingsBtn" title="設定">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M12 1v6m0 6v6m5.2-13.2l-4.2 4.2m-2 2l-4.2 4.2M23 12h-6m-6 0H5m13.2 5.2l-4.2-4.2m-2-2l-4.2-4.2">
+                            </path>
+                        </svg>
+                    </button>
                     <div id="authContainer"></div>
                     <div class="header-stats">
                         <span class="stat-badge" id="totalCount">0</span>
@@ -136,6 +144,30 @@
                 <div class="dialog-footer">
                     <button class="btn btn-secondary" id="cancelBtn">キャンセル</button>
                     <button class="btn btn-primary" id="saveBtn">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Dialog -->
+        <div class="dialog-overlay" id="settingsDialog">
+            <div class="dialog">
+                <div class="dialog-header">
+                    <h2>設定</h2>
+                    <button class="close-btn" id="closeSettingsBtn">×</button>
+                </div>
+                <div class="dialog-body">
+                    <div class="form-group">
+                        <label for="geminiApiKey">Gemini API Key</label>
+                        <input type="password" id="geminiApiKey" placeholder="AIzaSy..." class="form-input">
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                            AI自動タグ付けを使用するには、<a href="https://aistudio.google.com/app/apikey" target="_blank"
+                                style="color: var(--primary);">Google AI Studio</a>でAPIキーを取得してください。
+                        </p>
+                    </div>
+                </div>
+                <div class="dialog-footer">
+                    <button class="btn btn-secondary" id="cancelSettingsBtn">キャンセル</button>
+                    <button class="btn btn-primary" id="saveSettingsBtn">保存</button>
                 </div>
             </div>
         </div>
