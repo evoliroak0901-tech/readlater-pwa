@@ -6,9 +6,6 @@ let searchQuery = '';
 
 // 初期化
 document.addEventListener('DOMContentLoaded', async () => {
-    // Share Target処理
-    handleShareTarget();
-
     // グローバルにセッター関数とデータを公開
     window.updateAllPages = (newPages) => {
         allPages = newPages;
@@ -24,29 +21,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof initializeSupabase === 'function') {
         initializeSupabase();
     }
+
+    // Web Share Target / URLパラメータの処理（シェアメニューからの登録など）
+    handleShareTarget();
 });
 
-// Share Target処理
-function handleShareTarget() {
+// Web Share Target / URLパラメータの処理
+async function handleShareTarget() {
     const params = new URLSearchParams(window.location.search);
-    const sharedTitle = params.get('title');
-    const sharedText = params.get('text');
     const sharedUrl = params.get('url');
+    const sharedText = params.get('text');
+    const sharedTitle = params.get('title');
+    const action = params.get('action');
 
-    if (sharedUrl || sharedTitle || sharedText) {
-        setTimeout(() => {
-            const urlInput = document.getElementById('urlInput');
-            const titleInput = document.getElementById('titleInput');
-            if (urlInput) urlInput.value = sharedUrl || sharedText || '';
-            if (titleInput) titleInput.value = sharedTitle || '';
-            openDialog();
-        }, 100);
-        window.history.replaceState({}, document.title, '/');
-    }
+    // シェアされたURLまたはテキストがある場合、自動保存を試みる
+    if (sharedUrl || sharedText) {
+        const sourceUrl = sharedUrl || sharedText;
+        const sourceTitle = sharedTitle || '';
 
-    if (params.get('action') === 'add') {
-        setTimeout(() => openDialog(), 100);
+        // URLパラメータを消去して履歴を綺麗にする
         window.history.replaceState({}, document.title, '/');
+
+        // 保存処理
+        await handleExternalSave(sourceUrl, sourceTitle);
+    } else if (action === 'add') {
+        // ショートカット「新しく追加」など
+        window.history.replaceState({}, document.title, '/');
+        setTimeout(openDialog, 100);
     }
 }
 
