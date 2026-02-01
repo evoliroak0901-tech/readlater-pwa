@@ -555,14 +555,15 @@ async function saveNewPage() {
 
     allPages.unshift(page);
     await savePages();
-    renderCurrentView();
-    closeDialog();
-    showToast('保存しました✨', 'success');
 
     // クラウド同期
     if (typeof savePageToCloud === 'function') {
         await savePageToCloud(page);
     }
+
+    renderCurrentView();
+    closeDialog();
+    showToast('保存しました✨', 'success');
 }
 
 // タグ生成（AI + ドメインベース）
