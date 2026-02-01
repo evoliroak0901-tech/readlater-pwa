@@ -38,13 +38,19 @@ async function initializeSupabase() {
 
             if (accessToken) {
                 console.log('✅ Manually setting session with extracted tokens...');
-                await supabaseClient.auth.setSession({
+                const { data, error } = await supabaseClient.auth.setSession({
                     access_token: accessToken,
                     refresh_token: refreshToken || ''
                 });
-                console.log('🎉 Session manually established!');
-                // URLをクリーンアップ
-                window.history.replaceState(null, null, window.location.pathname);
+
+                if (error) {
+                    console.error('❌ setSession error:', error);
+                    alert('ログインエラー: ' + error.message);
+                } else {
+                    console.log('🎉 Session manually established!', data);
+                    // URLをクリーンアップ
+                    window.history.replaceState(null, null, window.location.pathname);
+                }
             }
         } catch (e) {
             console.error('❌ Manual token processing failed:', e);
