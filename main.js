@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Web Share Target / URLパラメータの処理（シェアメニューからの登録など）
-    handleShareTarget();
+    // 少し待機してから実行することで初期化完了を確実にする
+    setTimeout(handleShareTarget, 500);
 });
 
 // Web Share Target / URLパラメータの処理
@@ -34,20 +35,32 @@ async function handleShareTarget() {
     const sharedTitle = params.get('title');
     const action = params.get('action');
 
+    if (sharedUrl || sharedText || sharedTitle || action) {
+        console.log('Share parameters detected:', { sharedUrl, sharedText, sharedTitle, action });
+    }
+
     // シェアされたURLまたはテキストがある場合、自動保存を試みる
     if (sharedUrl || sharedText) {
         const sourceUrl = sharedUrl || sharedText;
         const sourceTitle = sharedTitle || '';
 
-        // URLパラメータを消去して履歴を綺麗にする
-        window.history.replaceState({}, document.title, '/');
+        console.log('Attempting auto-save from share:', sourceUrl);
+        showToast('保存しています...', 'info');
 
-        // 保存処理
-        await handleExternalSave(sourceUrl, sourceTitle);
+        // URLパラメータを消去して履歴を綺麗にする
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        try {
+            // 保存処理
+            await handleExternalSave(sourceUrl, sourceTitle);
+        } catch (e) {
+            console.error('Auto-save error:', e);
+            showToast('自動保存中にエラーが発生しました', 'error');
+        }
     } else if (action === 'add') {
         // ショートカット「新しく追加」など
-        window.history.replaceState({}, document.title, '/');
-        setTimeout(openDialog, 100);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        openDialog();
     }
 }
 
