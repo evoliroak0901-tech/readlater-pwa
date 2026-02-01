@@ -576,7 +576,9 @@ async function saveNewPage() {
     // 重複チェック
     if (finalUrlInput && finalUrlInput.match(/^https?:\/\//)) {
         const normalizedInput = normalizeUrl(finalUrlInput);
-        if (allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
+        const isGenericFeed = isGenericSnsFeed(finalUrlInput);
+
+        if (!isGenericFeed && allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
             showToast('すでに保存されています', 'info');
             closeDialog();
             return;
@@ -789,7 +791,9 @@ async function handleExternalSave(url, title, favicon) {
     // 重複チェック
     if (finalUrl && finalUrl.match(/^https?:\/\//)) {
         const normalizedInput = normalizeUrl(finalUrl);
-        if (allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
+        const isGenericFeed = isGenericSnsFeed(finalUrl);
+
+        if (!isGenericFeed && allPages.some(p => p.url && normalizeUrl(p.url) === normalizedInput)) {
             showToast('すでに保存されています', 'info');
             return;
         }
@@ -869,7 +873,7 @@ function normalizeUrl(url) {
     try {
         const u = new URL(url);
         // トラッキングパラメータの削除
-        const paramsToRemove = ['_t', '_r', 'is_from_webapp', 'sender_device', 'share_app_id', 'share_link_id', 'share_item_id'];
+        const paramsToRemove = ['_t', '_r', 'is_from_webapp', 'sender_device', 'share_app_id', 'share_link_id', 'share_item_id', 'social_sharing_control'];
         paramsToRemove.forEach(p => u.searchParams.delete(p));
         // 末尾のスラッシュを削除して比べるための正規化
         let normalized = u.origin + u.pathname;
@@ -881,5 +885,27 @@ function normalizeUrl(url) {
         return (normalized + search).toLowerCase();
     } catch (e) {
         return url.trim().replace(/\/$/, '').toLowerCase();
+    }
+}
+
+// SNSのフィードやトップページかどうかを判定
+function isGenericSnsFeed(url) {
+    try {
+        const u = new URL(url);
+        const path = u.pathname.replace(/\/$/, '').toLowerCase();
+
+        // TikTok
+        if (u.hostname.includes('tiktok.com')) {
+            // /@user/video/123... ではない場合はフィードの可能性が高い
+            return !path.includes('/video/');
+        }
+
+        // YouTube, X なども同様に判定可能
+        if (u.hostname.includes('youtube.com') && path === '') return true;
+        if (u.hostname.includes('x.com') && (path === '' || path === '/home')) return true;
+
+        return false;
+    } catch (e) {
+        return false;
     }
 }
