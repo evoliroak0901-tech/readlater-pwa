@@ -29,7 +29,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Web Share Target / URLパラメータの処理
 async function handleShareTarget() {
-    const params = new URLSearchParams(window.location.search);
+    let search = window.location.search;
+
+    // iOSショートカットなどで ? が抜けて /url=... になっている場合の救済処置
+    if (!search && window.location.pathname.includes('url=')) {
+        search = '?' + window.location.pathname.split('/').pop();
+    }
+
+    const params = new URLSearchParams(search);
     const sharedUrl = params.get('url');
     const sharedText = params.get('text');
     const sharedTitle = params.get('title');
@@ -42,7 +49,16 @@ async function handleShareTarget() {
     // シェアされたURLまたはテキストがある場合、自動保存を試みる
     if (sharedUrl || sharedText) {
         const sourceUrl = sharedUrl || sharedText;
-        const sourceTitle = sharedTitle || '';
+        let sourceTitle = sharedTitle || '';
+
+        // タイトルがエンコードされている場合があるため、復元を試みる
+        try {
+            if (sourceTitle && sourceTitle.includes('%')) {
+                sourceTitle = decodeURIComponent(sourceTitle);
+            }
+        } catch (e) {
+            console.warn('Title decoding failed:', e);
+        }
 
         console.log('Attempting auto-save from share:', sourceUrl);
         showToast('保存しています...', 'info');
@@ -661,12 +677,23 @@ async function generateTags(title, url, excerpt) {
         const domainTags = {
             'github.com': ['開発', 'GitHub'],
             'youtube.com': ['動画', 'YouTube'],
+            'youtu.be': ['動画', 'YouTube'],
             'twitter.com': ['SNS', 'Twitter'],
             'x.com': ['SNS', 'X'],
+            't.co': ['SNS', 'X'],
+            'tiktok.com': ['動画', 'SNS', 'TikTok'],
+            'instagram.com': ['SNS', 'Instagram'],
+            'facebook.com': ['SNS', 'Facebook'],
             'qiita.com': ['技術記事', 'Qiita'],
             'zenn.dev': ['技術記事', 'Zenn'],
             'note.com': ['ブログ', 'Note'],
-            'medium.com': ['ブログ', 'Medium']
+            'medium.com': ['ブログ', 'Medium'],
+            'reddit.com': ['SNS', 'Reddit'],
+            'stackoverflow.com': ['開発', 'Q&A'],
+            'amazon.co.jp': ['ショッピング'],
+            'amazon.com': ['ショッピング'],
+            'netflix.com': ['動画', 'Netflix'],
+            'spotify.com': ['音楽', 'Spotify']
         };
 
         for (const [key, value] of Object.entries(domainTags)) {
