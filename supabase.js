@@ -25,10 +25,30 @@ async function initializeSupabase() {
         window.location.hash.includes('type=recovery');
 
     if (hasTokenInUrl) {
-        console.log('Token detected in URL, waiting for Supabase...');
+        console.log('🔑 Token detected in URL, manually processing...');
         // UIをローディング状態に
         const container = document.getElementById('authContainer');
         if (container) container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">接続中...</div>';
+
+        // 手動でトークンを抽出してセッションを確立
+        try {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+
+            if (accessToken) {
+                console.log('✅ Manually setting session with extracted tokens...');
+                await supabaseClient.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken || ''
+                });
+                console.log('🎉 Session manually established!');
+                // URLをクリーンアップ
+                window.history.replaceState(null, null, window.location.pathname);
+            }
+        } catch (e) {
+            console.error('❌ Manual token processing failed:', e);
+        }
     }
 
     // 認証状態の監視
