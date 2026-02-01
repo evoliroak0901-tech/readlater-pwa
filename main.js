@@ -482,7 +482,7 @@ async function saveNewPage() {
         favicon: favicon,
         domain: domain,
         excerpt: noteInput,
-        tags: generateTags(title, url, noteInput),
+        tags: await generateTags(title, url, noteInput),
         read: false,
         savedAt: new Date().toISOString()
     };
@@ -499,8 +499,8 @@ async function saveNewPage() {
     }
 }
 
-// タグ生成
-function generateTags(title, url, excerpt) {
+// タグ生成（AI + ドメインベース）
+async function generateTags(title, url, excerpt) {
     const tags = [];
 
     if (!url) {
@@ -508,6 +508,7 @@ function generateTags(title, url, excerpt) {
         return tags;
     }
 
+    // ドメインベースのタグを先に取得
     try {
         const domain = new URL(url).hostname;
         const domainTags = {
@@ -528,13 +529,38 @@ function generateTags(title, url, excerpt) {
             }
         }
     } catch (e) {
-        console.error('Tag generation error:', e);
+        console.error('Domain tag generation error:', e);
+    }
+
+    // AI タグ生成を試みる
+    try {
+        const response = await fetch('/api/generate-tags', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ title, url })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.tags && data.tags.length > 0) {
+                console.log('✨ AI generated tags:', data.tags);
+                tags.push(...data.tags);
+            }
+        } else {
+            console.warn('AI tag generation failed, using domain tags only');
+        }
+    } catch (e) {
+        console.warn('AI tag generation error:', e);
+        // エラー時はドメインタグのみ使用
     }
 
     if (tags.length === 0) {
         tags.push('未分類');
     }
 
+    // 重複を削除して返す
     return [...new Set(tags)];
 }
 
