@@ -3,7 +3,7 @@
 
 // 環境変数
 const SUPABASE_URL = 'https://sreimiuxlfqlifkrlwhv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWltaXV4bGZxbGlma3Jsd2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNDY1MzksImV4cCI6MjA1MjYyMjUzOX0.Gq3S_bYERVzstLPgNNDQExh-dMqLf7sTkjrFN-rJXuk';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyZWltaXV4bGZxbGlma3Jsd2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTIyNDIsImV4cCI6MjA4NDU2ODI0Mn0.2EaMQC3NdPU7Tqxps0P-YO5Stc9X5gjrXz_tPrG82XE';
 
 // Supabaseクライアント作成
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
