@@ -803,17 +803,55 @@ ${excerpt ? `内容: ${excerpt}` : ''}
 async function fetchPageMetadata(url) {
     try {
         showToast('記事情報を取得中...', 'info');
+        console.log('🔍 Fetching metadata for:', url);
 
-        // CORSを回避するため、プロキシAPIを使用
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        // タイムアウト付きfetch
+        const fetchWithTimeout = (url, timeout = 10000) => {
+            return Promise.race([
+                fetch(url),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout')), timeout)
+                )
+            ]);
+        };
 
-        if (!response.ok) {
-            console.warn('Failed to fetch page metadata');
-            return { title: null, image: null, excerpt: null };
+        // CORSプロキシを試す（複数のフォールバック）
+        const proxies = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            `https://corsproxy.io/?${encodeURIComponent(url)}`
+        ];
+
+        let html = null;
+        let lastError = null;
+
+        for (const proxyUrl of proxies) {
+            try {
+                console.log('📡 Trying proxy:', proxyUrl.split('?')[0]);
+                const response = await fetchWithTimeout(proxyUrl, 8000);
+
+                if (!response.ok) {
+                    console.warn(`Proxy failed with status ${response.status}`);
+                    continue;
+                }
+
+                const data = await response.json();
+                html = data.contents || data.body || data;
+
+                if (html && typeof html === 'string') {
+                    console.log('✅ Successfully fetched HTML via proxy');
+                    break;
+                }
+            } catch (e) {
+                console.warn(`Proxy error:`, e.message);
+                lastError = e;
+            }
         }
 
-        const data = await response.json();
-        const html = data.contents;
+        if (!html) {
+            console.error('❌ All proxies failed:', lastError);
+            showToast('タイトル取得に失敗しました', 'error');
+            return { title: null, image: null, excerpt: null };
+        }
 
         // タイトルを抽出（優先順位: og:title > twitter:title > title タグ）
         let title = null;
@@ -859,11 +897,16 @@ async function fetchPageMetadata(url) {
             }
         }
 
-        console.log('✨ Fetched metadata:', { title, image: image ? '(found)' : '(none)', excerpt: excerpt ? excerpt.substring(0, 50) + '...' : '(none)' });
+        console.log('✨ Fetched metadata:', {
+            title: title || '(none)',
+            image: image ? '(found)' : '(none)',
+            excerpt: excerpt ? excerpt.substring(0, 50) + '...' : '(none)'
+        });
 
         return { title, image, excerpt };
     } catch (e) {
-        console.error('Error fetching page metadata:', e);
+        console.error('❌ Error fetching page metadata:', e);
+        showToast('メタデータ取得エラー', 'error');
         return { title: null, image: null, excerpt: null };
     }
 }
