@@ -669,6 +669,7 @@ async function saveNewPage() {
     let title = titleInput;
     let domain = '';
     let favicon = '';
+    let excerpt = noteInput;
 
     if (finalUrlInput.match(/^https?:\/\//)) {
         url = finalUrlInput;
@@ -676,7 +677,25 @@ async function saveNewPage() {
             const urlObj = new URL(url);
             domain = urlObj.hostname;
             favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-            if (!title) title = domain;
+
+            // タイトルが未入力の場合、自動取得を試みる
+            if (!title) {
+                const metadata = await fetchPageMetadata(url);
+                if (metadata.title) {
+                    title = metadata.title;
+                    console.log('✨ Auto-fetched title:', title);
+                } else {
+                    title = domain;
+                }
+                if (metadata.image) {
+                    favicon = metadata.image;
+                    console.log('✨ Auto-fetched image:', favicon);
+                }
+                if (metadata.excerpt && !noteInput) {
+                    excerpt = metadata.excerpt;
+                    console.log('✨ Auto-fetched excerpt:', excerpt.substring(0, 50) + '...');
+                }
+            }
         } catch (e) {
             console.error('Invalid URL:', e);
         }
@@ -692,9 +711,9 @@ async function saveNewPage() {
         title: title || 'Untitled',
         favicon: favicon,
         domain: domain,
-        excerpt: noteInput,
+        excerpt: excerpt,
         sns: snsInfo,
-        tags: await generateTags(title, url, noteInput),
+        tags: await generateTags(title, url, excerpt),
         read: false,
         savedAt: new Date().toISOString()
     };
@@ -905,11 +924,19 @@ async function fetchPageMetadata(url) {
 
         // タイトルを抽出（優先順位: og:title > twitter:title > title タグ）
         let title = null;
-        const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
+        // og:title - 両方の順序に対応
+        let ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
+        if (!ogTitleMatch) {
+            ogTitleMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:title["']/i);
+        }
         if (ogTitleMatch) title = ogTitleMatch[1];
 
         if (!title) {
-            const twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']*)["']/i);
+            // twitter:title - 両方の順序に対応
+            let twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']*)["']/i);
+            if (!twitterTitleMatch) {
+                twitterTitleMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']twitter:title["']/i);
+            }
             if (twitterTitleMatch) title = twitterTitleMatch[1];
         }
 
@@ -920,21 +947,33 @@ async function fetchPageMetadata(url) {
 
         // 画像を抽出（優先順位: og:image > twitter:image）
         let image = null;
-        const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
+        let ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
+        if (!ogImageMatch) {
+            ogImageMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:image["']/i);
+        }
         if (ogImageMatch) image = ogImageMatch[1];
 
         if (!image) {
-            const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']*)["']/i);
+            let twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']*)["']/i);
+            if (!twitterImageMatch) {
+                twitterImageMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']twitter:image["']/i);
+            }
             if (twitterImageMatch) image = twitterImageMatch[1];
         }
 
         // 記事の抜粋を取得（優先順位: og:description > meta description）
         let excerpt = null;
-        const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
+        let ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
+        if (!ogDescMatch) {
+            ogDescMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:description["']/i);
+        }
         if (ogDescMatch) excerpt = ogDescMatch[1];
 
         if (!excerpt) {
-            const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+            let metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+            if (!metaDescMatch) {
+                metaDescMatch = html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+            }
             if (metaDescMatch) excerpt = metaDescMatch[1];
         }
 
