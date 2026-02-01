@@ -693,7 +693,24 @@ async function generateTags(title, url, excerpt) {
             'amazon.co.jp': ['ショッピング'],
             'amazon.com': ['ショッピング'],
             'netflix.com': ['動画', 'Netflix'],
-            'spotify.com': ['音楽', 'Spotify']
+            'spotify.com': ['音楽', 'Spotify'],
+            // レシピサイト
+            'cookpad.com': ['レシピ', '料理'],
+            'kurashiru.com': ['レシピ', '料理'],
+            'delishkitchen.tv': ['レシピ', '料理'],
+            'recipe.rakuten.co.jp': ['レシピ', '料理'],
+            'erecipe.woman.excite.co.jp': ['レシピ', '料理'],
+            'allrecipes.jp': ['レシピ', '料理'],
+            // グルメ・スポット
+            'tabelog.com': ['グルメ', 'スポット'],
+            'gurunavi.com': ['グルメ', 'スポット'],
+            'hotpepper.jp': ['グルメ', 'スポット'],
+            'retty.me': ['グルメ', 'スポット'],
+            'jalan.net': ['旅行', 'スポット'],
+            'tripadvisor.jp': ['旅行', 'スポット'],
+            'booking.com': ['旅行', 'ホテル'],
+            'airbnb.com': ['旅行', '宿泊'],
+            'google.com/maps': ['地図', 'スポット']
         };
 
         for (const [key, value] of Object.entries(domainTags)) {
