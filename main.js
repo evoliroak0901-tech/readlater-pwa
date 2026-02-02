@@ -744,7 +744,14 @@ async function generateTags(title, url, excerpt) {
     try {
         const domain = new URL(url).hostname;
         const domainTags = {
+            // 開発・技術
             'github.com': ['開発', 'GitHub'],
+            'qiita.com': ['技術記事', 'Qiita'],
+            'zenn.dev': ['技術記事', 'Zenn'],
+            'stackoverflow.com': ['開発', 'Q&A'],
+            'dev.to': ['技術記事', '開発'],
+
+            // 動画・SNS
             'youtube.com': ['動画', 'YouTube'],
             'youtu.be': ['動画', 'YouTube'],
             'twitter.com': ['SNS', 'Twitter'],
@@ -753,16 +760,33 @@ async function generateTags(title, url, excerpt) {
             'tiktok.com': ['動画', 'SNS', 'TikTok'],
             'instagram.com': ['SNS', 'Instagram'],
             'facebook.com': ['SNS', 'Facebook'],
-            'qiita.com': ['技術記事', 'Qiita'],
-            'zenn.dev': ['技術記事', 'Zenn'],
-            'note.com': ['ブログ', 'Note'],
-            'medium.com': ['ブログ', 'Medium'],
             'reddit.com': ['SNS', 'Reddit'],
-            'stackoverflow.com': ['開発', 'Q&A'],
-            'amazon.co.jp': ['ショッピング'],
-            'amazon.com': ['ショッピング'],
             'netflix.com': ['動画', 'Netflix'],
             'spotify.com': ['音楽', 'Spotify'],
+
+            // ブログ・メディア
+            'note.com': ['ブログ', 'Note'],
+            'medium.com': ['ブログ', 'Medium'],
+            'ameblo.jp': ['ブログ', 'アメブロ'],
+            'hateblo.jp': ['ブログ', 'はてな'],
+            'hatenablog.com': ['ブログ', 'はてな'],
+
+            // ニュース
+            'yahoo.co.jp': ['ニュース'],
+            'news.yahoo.co.jp': ['ニュース'],
+            'gigazine.net': ['ニュース', 'テクノロジー'],
+            'itmedia.co.jp': ['ニュース', 'テクノロジー'],
+            'cnet.com': ['ニュース', 'テクノロジー'],
+            'engadget.com': ['ニュース', 'ガジェット'],
+            'gizmodo.jp': ['ニュース', 'ガジェット'],
+
+            // ショッピング
+            'amazon.co.jp': ['ショッピング', '商品レビュー'],
+            'amazon.com': ['ショッピング', '商品レビュー'],
+            'rakuten.co.jp': ['ショッピング'],
+            'mercari.com': ['フリマ', 'ショッピング'],
+            'zozo.jp': ['ファッション', 'ショッピング'],
+
             // レシピサイト
             'cookpad.com': ['レシピ', '料理'],
             'kurashiru.com': ['レシピ', '料理'],
@@ -770,16 +794,48 @@ async function generateTags(title, url, excerpt) {
             'recipe.rakuten.co.jp': ['レシピ', '料理'],
             'erecipe.woman.excite.co.jp': ['レシピ', '料理'],
             'allrecipes.jp': ['レシピ', '料理'],
+            'macaroni.jp': ['レシピ', 'グルメ'],
+            'nadia.com': ['レシピ', '料理'],
+
             // グルメ・スポット
-            'tabelog.com': ['グルメ', 'スポット'],
-            'gurunavi.com': ['グルメ', 'スポット'],
-            'hotpepper.jp': ['グルメ', 'スポット'],
-            'retty.me': ['グルメ', 'スポット'],
-            'jalan.net': ['旅行', 'スポット'],
-            'tripadvisor.jp': ['旅行', 'スポット'],
+            'tabelog.com': ['グルメスポット', '飲食店'],
+            'gurunavi.com': ['グルメスポット', '飲食店'],
+            'hotpepper.jp': ['グルメスポット', '飲食店'],
+            'retty.me': ['グルメスポット', '飲食店'],
+            'gnavi.co.jp': ['グルメスポット'],
+
+            // 旅行
+            'jalan.net': ['旅行', '観光'],
+            'tripadvisor.jp': ['旅行', '観光'],
             'booking.com': ['旅行', 'ホテル'],
             'airbnb.com': ['旅行', '宿泊'],
-            'google.com/maps': ['地図', 'スポット']
+            'expedia.co.jp': ['旅行', 'ホテル'],
+            'google.com/maps': ['地図', 'スポット'],
+            'travel.rakuten.co.jp': ['旅行', 'ホテル'],
+
+            // 健康・美容
+            'cancam.jp': ['美容', 'ファッション'],
+            'maquia.jp': ['美容', 'スキンケア'],
+            'voce.jp': ['美容', 'コスメ'],
+            'cosme.net': ['美容', 'コスメ', '商品レビュー'],
+            'mery.jp': ['美容', 'ライフスタイル'],
+            'locari.jp': ['美容', 'ライフスタイル'],
+            'healthpress.jp': ['健康', '医療'],
+            'kenko.com': ['健康', 'サプリ'],
+
+            // 金融・投資
+            'moneyforward.com': ['金融', '家計管理'],
+            'kabutan.jp': ['投資', '株'],
+            'minkabu.jp': ['投資', '株'],
+            'diamond.jp': ['ビジネス', '経済'],
+            'toyokeizai.net': ['ビジネス', '経済'],
+            'president.jp': ['ビジネス'],
+
+            // 学習・教育
+            'udemy.com': ['学習', 'オンライン講座'],
+            'coursera.org': ['学習', 'オンライン講座'],
+            'progate.com': ['プログラミング学習'],
+            'schoo.jp': ['学習', 'オンライン講座']
         };
 
         for (const [key, value] of Object.entries(domainTags)) {
@@ -804,12 +860,24 @@ async function generateTags(title, url, excerpt) {
             return [...new Set(tags)];
         }
 
-        const prompt = `以下のWebページの情報から、適切なタグを3-5個、日本語で生成してください。
-タグはカンマ区切りで出力してください。タグのみを出力し、他の説明は不要です。
+        const prompt = `あなたはコンテンツ分類の専門家です。以下のWebページの情報を分析し、適切なタグを生成してください。
 
+【入力情報】
 タイトル: ${title || '不明'}
 URL: ${url || '不明'}
-${excerpt ? `内容: ${excerpt}` : ''}
+${excerpt ? `概要・内容: ${excerpt}` : ''}
+
+【タグ生成ルール】
+1. 必ず3〜5個のタグを生成
+2. 以下のカテゴリから最も適切なものを選んでタグに含める：
+   - コンテンツ種別: レシピ, グルメスポット, 商品レビュー, ニュース, 解説記事, チュートリアル, エンタメ, 日記・体験談
+   - 分野: 料理, 健康・美容, テクノロジー, ビジネス, ライフスタイル, 旅行, 趣味, スポーツ, 教育, 金融
+   - 詳細カテゴリ例: ダイエット, 筋トレ, スキンケア, 節約術, 副業, 投資, カフェ, ラーメン, イタリアン, 和食, 観光地, 温泉, ホテル, アプリ開発, AI, ガジェット
+3. 具体的で検索に役立つタグを優先
+4. 一般的すぎるタグ（例：情報、記事、サイト）は避ける
+
+【出力形式】
+タグをカンマ区切りで出力してください。タグのみを出力し、説明は不要です。
 
 タグ:`;
 
